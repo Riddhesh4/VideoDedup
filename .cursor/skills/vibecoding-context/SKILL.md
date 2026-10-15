@@ -29,8 +29,7 @@ ArchUnitNET, zero warnings, Obfuscar in Release.
 | `tests/VideoDedup.*.Tests` | Unit tests per layer |
 | `tests/VideoDedup.Bdd.Tests` | Reqnroll `Features/*.feature` + `Steps/` |
 | `testing/` | Planned ArchUnitNET layer-rules project |
-| `scripts/obfuscate.ps1` + `obfuscar.xml` | Release-time obfuscation |
-| `obfuscar.xml` | What gets obfuscated; XAML-bound namespace is skipped |
+| `scripts/obfuscate.ps1` | Release-time obfuscation; generates `obfuscar.generated.xml` with absolute paths |
 
 ## Non-negotiables
 

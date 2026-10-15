@@ -63,7 +63,9 @@ The plan's durable queue design (atomic claim, retries, poison jobs, no-duplicat
 0. **Reverse-engineering hardening (added 2026-10-15, per user requirement)** — the client
    must not be trivially reversible:
    - **Obfuscar 2.2.x (MIT, free)** wired into Release builds after publish/compile:
-     identifier/module renaming via `obfuscar.xml`, output swapped into the distributable
+     identifier/module renaming via a generated Obfuscar project (beta requires
+     absolute module paths, so `scripts/obfuscate.ps1` emits it at build time),
+     output swapped into the distributable
      while the unobfuscated intermediates are never committed. WPF caveat: exclude
      XAML-bound types via Obfuscar skip rules; obfuscated Release builds are smoke-tested
      in CI before packaging.
