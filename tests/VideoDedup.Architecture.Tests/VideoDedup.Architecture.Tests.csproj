@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VideoDedup.Domain\VideoDedup.Domain.csproj" />
+    <ProjectReference Include="..\..\src\VideoDedup.Application\VideoDedup.Application.csproj" />
+    <ProjectReference Include="..\..\src\VideoDedup.Infrastructure\VideoDedup.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\VideoDedup.Workers\VideoDedup.Workers.csproj" />
+    <ProjectReference Include="..\..\src\VideoDedup.Desktop\VideoDedup.Desktop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+</Project>

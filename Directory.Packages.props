@@ -9,9 +9,11 @@
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="dotnet-coverage" Version="18.12.0" />
 
     <!-- Assertions and mocks -->
-    <PackageVersion Include="FluentAssertions" Version="8.11.0" />
+    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
 
     <!-- BDD -->

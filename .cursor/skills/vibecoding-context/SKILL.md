@@ -19,7 +19,11 @@ ArchUnitNET, zero warnings, Obfuscar in Release.
 
 | Path | Contents |
 |---|---|
-| `PLAN-REVIEW.md` | Approved amended plan; §5.0 = RE-hardening rules |
+| `ARCHITECTURE.md` | Concise charter, dependency boundaries, threat model, and invariants |
+| `DECISIONS.md` | Accepted choices and pending decisions |
+| `TASKS.md` | Current phase status and exit-record template |
+| `PHASE-PROMPTS.md` | Canonical phase-by-phase prompts adapted from the source PDF |
+| `PLAN-REVIEW.md` | Original-plan review and amendments |
 | `THIRD-PARTY.md` | Licensing ledger for external binaries |
 | `src/VideoDedup.Domain` | Entities, matching policies; pure C# — no infra deps allowed |
 | `src/VideoDedup.Application` | Use cases, orchestrators, interfaces |
@@ -28,7 +32,7 @@ ArchUnitNET, zero warnings, Obfuscar in Release.
 | `src/VideoDedup.Desktop` | WPF app (never touches FFmpeg or DB directly) |
 | `tests/VideoDedup.*.Tests` | Unit tests per layer |
 | `tests/VideoDedup.Bdd.Tests` | Reqnroll `Features/*.feature` + `Steps/` |
-| `testing/` | Planned ArchUnitNET layer-rules project |
+| `tests/VideoDedup.Architecture.Tests` | ArchUnitNET layer-boundary rules |
 | `scripts/obfuscate.ps1` | Release-time obfuscation; generates `obfuscar.generated.xml` with absolute paths |
 
 ## Non-negotiables
@@ -37,9 +41,10 @@ ArchUnitNET, zero warnings, Obfuscar in Release.
 2. Domain references nothing infra; Desktop references Application only.
 3. No GPL artifacts — check `THIRD-PARTY.md` before adding binaries.
 4. Never auto-delete user files (quarantine + undo are invariants).
-5. No secrets in code; per-user SQLite under `%APPDATA%` is the only store.
-6. Test project names end `.Tests`; BDD steps are `FeatureXyz_Steps`.
-7. New code needs tests; test-first for domain/matching logic.
+5. No client-side secrets; obfuscation only raises RE cost and is not a security boundary.
+6. Treat media/paths/tool output as untrusted; subprocesses use `ArgumentList`, never a shell.
+7. Test project names end `.Tests`; BDD steps use a consistent feature-specific convention.
+8. New code needs tests; test-first for domain/matching logic.
 
 ## Commands
 
@@ -52,9 +57,9 @@ dotnet tool restore                     # Obfuscar, then scripts/obfuscate.ps1 (
 
 ## Progress
 
-- **Phase 0 — DONE**: bootstrap; CI on GitHub (`Riddhesh4/VideoDedup`).
-- **Phase 1 — NEXT**: domain model + `IDuplicateMatchPolicy` tests-first; ArchUnit layer rules.
-- Phases 2–9 pending (see `PLAN-REVIEW.md` for pipeline and gate details).
+- **Phase 0 — DONE**: bootstrap; CI on GitHub (`Riddhesh4/VideoDedup`), last verified green at `291140a`.
+- **Phase 1 — LOCALLY VERIFIED, ready to commit/push**: pure domain model/value objects (including drive details), deterministic matching policy, complete `VideoFile` scan-state transitions, 33 Domain tests, 2 ArchUnitNET boundary tests. Release build: 0 warnings/errors; solution: 39/39 tests passing; Domain coverage: 96.53% lines / 89.49% branches; CI enforces >=90% Domain line coverage.
+- **Phase 2 — NEXT**: local/USB scan roots and file discovery. See `TASKS.md` for evidence/limitations, `PHASE-PROMPTS.md` for the canonical prompt set, and `ARCHITECTURE.md` / `DECISIONS.md` for current constraints.
 
 When finishing a phase, **update this `## Progress` section in the same commit** — this is
 the mechanism that keeps sessions cheap.

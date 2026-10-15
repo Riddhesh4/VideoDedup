@@ -6,7 +6,15 @@
       "version": "3.0.0-beta.22",
       "commands": [
         "obfuscar.console"
-      ]
+      ],
+      "rollForward": false
+    },
+    "dotnet-coverage": {
+      "version": "18.12.0",
+      "commands": [
+        "dotnet-coverage"
+      ],
+      "rollForward": false
     }
   }
 }

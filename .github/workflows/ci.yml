@@ -22,6 +22,15 @@ jobs:
       - name: Build (warnings are errors)
         run: dotnet build VideoDedup.slnx --no-restore -c Release
 
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Collect Domain coverage
+        run: dotnet tool run dotnet-coverage -- collect -o TestResults/Domain-Coverage.cobertura.xml -f cobertura dotnet test --project tests/VideoDedup.Domain.Tests/VideoDedup.Domain.Tests.csproj -c Release --no-build
+
+      - name: Enforce Domain coverage threshold
+        run: pwsh -File scripts/check-domain-coverage.ps1
+
       # global.json opts the solution into the MTP mode of dotnet test;
       # MTP filters are passed after -- in xUnit v3 native syntax.
       - name: Test (all)

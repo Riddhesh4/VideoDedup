@@ -11,7 +11,7 @@ Review date: 2026-10-15. Source: "Create a architecture plan for the solution se
 | Plan says | Reality (Oct 2026) | Amend to |
 |---|---|---|
 | ".NET 9 or .NET 10 LTS" | .NET 9 (STS) is already out of support; .NET 10 is the current LTS. .NET 8 EOL is Nov 10, 2026. | ".NET 10 LTS" — remove .NET 9 as an option. |
-| "xUnit v3" | xUnit v3 is stable and recommended; note the v3 *generation* now ships 4.x package versions (released Oct 9, 2026). Pin `xunit.v3` packages; VSTest integration needs `xunit.runner.visualstudio` 3.x+. | Keep xUnit v3 generation; pin versions in `Directory.Packages.props` and note the package-major ≠ generation subtlety. |
+| "xUnit v3" | xUnit v3 is stable and recommended; note the v3 *generation* now ships 4.x package versions (released Oct 9, 2026). Pin `xunit.v3` packages; VSTest integration needs `xunit.runner.visualstudio` 3.x+. FluentAssertions 8+ also requires a paid commercial-use license; 7.2.0 remains Apache-2.0. | Keep xUnit v3 generation; pin versions in `Directory.Packages.props`; use FluentAssertions 7.2.0 unless commercial licensing is approved. |
 | Reqnroll + xUnit | Reqnroll is at 3.x; xUnit v3 support ships as the separate `Reqnroll.xunit.v3` package since 3.1. | Use `Reqnroll.xunit.v3` explicitly; plan's generic "Reqnroll + xUnit" will resolve to the wrong runner otherwise. |
 | "NetArchTest or ArchUnitNET" | NetArchTest.Rules is stagnant (last 1.3.2, 2021-era API); ArchUnitNET is actively maintained (0.13.x, Aug 2026) with an xUnit v3 integration package (`TngTech.ArchUnitNET.xUnitV3`). | Pick **ArchUnitNET + its xUnitV3 package**. Don't list NetArchTest as an option; it's a dead end for a new project. |
 
@@ -60,22 +60,24 @@ The plan's durable queue design (atomic claim, retries, poison jobs, no-duplicat
 
 ## 5. Gaps to add
 
-0. **Reverse-engineering hardening (added 2026-10-15, per user requirement)** — the client
-   must not be trivially reversible:
-   - **Obfuscar 2.2.x (MIT, free)** wired into Release builds after publish/compile:
-     identifier/module renaming via a generated Obfuscar project (beta requires
-     absolute module paths, so `scripts/obfuscate.ps1` emits it at build time),
-     output swapped into the distributable
-     while the unobfuscated intermediates are never committed. WPF caveat: exclude
-     XAML-bound types via Obfuscar skip rules; obfuscated Release builds are smoke-tested
-     in CI before packaging.
-   - NativeAOT is **not** a WPF option at .NET 10 (WPF trimming remains unsupportable
-     upstream) — so protection = obfuscation + design, not AOT.
-   - Design rule that matters more than renaming: **the client holds no long-lived
-     secrets**. Scan roots, license state, and settings live in SQLite per-user under
-     `%APPDATA%`; there is nothing worth extracting from a decompiled binary.
-   - `ReadyToRun` is irrelevant for concealment (IL is retained); document so nobody
-     "turns it on for security" later.
+0. **Reverse-engineering hardening (added 2026-10-15, per user requirement)** — raise
+   the cost of casual inspection, but do not promise that a client is impossible to
+   reverse engineer:
+   - **Obfuscar.GlobalTool 3.0.0-beta.22 (MIT, free)** is currently pinned in the local
+     tool manifest and run by `scripts/obfuscate.ps1`. The script generates the Obfuscar
+     project with absolute paths (required by this beta), then swaps obfuscated outputs
+     into `publish/`. Keep unobfuscated intermediates out of release artifacts. WPF
+     XAML, bindings, reflection, and serialized members need explicit preservation rules
+     and a packaged Release smoke test; the current CI smoke checks only selected names,
+     not all application behavior.
+   - Treat obfuscation, string hiding, and `SuppressIldasm` as deterrents only. A local
+     administrator/owner can inspect, patch, or replace the application. Do not rely on
+     the client to enforce authorization or protect embedded secrets.
+   - NativeAOT is **not an approved WPF path at .NET 10**; ReadyToRun retains IL and is
+     not concealment. Neither is a security control here.
+   - Strongest design rule: **ship no secrets in the client**. Current v1 has no cloud
+     credentials or licensing secret; per-user local data is not a secret boundary.
+     Protect local data with user-profile ACLs and minimize sensitive logs.
 1. **Drive identity is the hard problem, not "DriveId"** — the plan stores `VolumeSignature`, but USB enclosures can change volume signatures across ports/hubs in practice. Amend `StableFileIdentity` to use (volume signature OR size+modifiedTime+path-hash tiebreaker) with a documented precedence, and add a BDD scenario for "same drive, signature mismatch, path matches" → NeedsReview instead of a new file record.
 2. **Network shares are the v1 scope creep** — `\\NAS\Media` scanning (UNC enumeration over SMB) drags in auth, latency, and unavailability semantics that USB paths don't. Cut network shares from Phase 2's definition of done to "discoverable but not scanned by default"; ship local + USB in v1.
 3. **Hashing with no FFmpeg coverage for exotic codecs** — some camera formats (10-bit H.265, RAW variants) decode slowly or fail. Add a codec-support probe to ProbeWorker that marks such files `Unsupported` early instead of letting them burn retry cycles in the two fingerprint workers.
@@ -96,6 +98,7 @@ The plan's durable queue design (atomic claim, retries, poison jobs, no-duplicat
 | 7 | Tests: xUnit v3, FluentAssertions, NSubstitute, **Reqnroll.xunit.v3**, **ArchUnitNET.xUnitV3** | Amended tooling |
 | 8 | No cloud, no gRPC in v1; network shares discoverable-but-not-scanned by default | Amended |
 | 9 | Quarantine-default + undo log + last-copy protection | Unchanged (raised to non-negotiable) |
+| 10 | No client secrets; Obfuscar 3.0.0-beta.22 is only RE friction; WPF package smoke required; no AOT/ReadyToRun concealment claims | Added |
 
 ## 7. Sources checked
 

@@ -10,6 +10,10 @@ the exact source downloaded from, per the Phase 0 licensing gate in PLAN-REVIEW.
 | fpcalc / Chromaprint (planned, Phase 6) | 1.6.2 | LGPL-2.1-or-later | acoustid/chromaprint GitHub releases (`chromaprint-fpcalc-1.6.2-windows-x86_64.zip`) | Ship runtime files together; do not extract only the EXE. Auto-fetch via GitHub releases API. |
 | SQLite (via Microsoft.Data.Sqlite) | 10.0.13 | MIT | nuget.org | Managed provider; SQLite itself is public domain. |
 | .NET 10 SDK / runtime | 10.0.402 | MIT | dotnet.microsoft.com | Build tooling only. |
+| Obfuscar.GlobalTool | 3.0.0-beta.22 | MIT | NuGet (`Obfuscar.GlobalTool`) | Release-build RE deterrent only; do not treat as a security boundary. |
+| TngTech.ArchUnitNET.xUnitV3 | 0.13.4 | Apache-2.0 | NuGet; TNG/ArchUnitNET | Test-only architecture rules; requires Windows target because it inspects WPF assembly. |
+| FluentAssertions | 7.2.0 | Apache-2.0 | NuGet; fluentassertions.com | Test-only assertions; pinned to Apache-2.0 release (v8+ has paid commercial-use terms). |
+| dotnet-coverage | 18.12.0 | Microsoft .NET Library License | Local dotnet tool manifest | Development-only local coverage measurement; not included in app distribution. |
 
 ## Rules
 
