@@ -28,7 +28,7 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 
 ### Phase 2
 
-- Commit SHA: pending (locally verified, uncommitted).
+- Commit SHA: `3d67e0a` (CI `ci` #6 success on `main`).
 - Build/test results: Release build 0 warnings/0 errors. Full solution suite: 59 passed, 0 failed, 0 skipped, including Application, Infrastructure, 2 architecture tests, and 3 BDD scenarios. Domain line coverage 96.55% (>=90% gate passes).
 - Implemented: add/update/enable/disable/remove/rescan root use cases; duplicate-path guard; local/USB discovery; network roots explicitly deferred; supported video filtering, include/exclude extension/name/subtree patterns, hidden/system/reparse skipping; cancellable iterative traversal (100k-directory bound), accessible sibling continuation; volume signature + relative path + size/time identity comparisons; global volume-signature-change warning with matching paths forced to NeedsReview (never silently updated); uncertain rename/move to review; unchanged records not resaved; temp-file atomic persistence under LocalAppData for root configuration and indexed records.
 - Hardening: Central Package Management pins System.IO.FileSystem.AccessControl 5.0.0 (System.Security.Principal.Windows is in-box, not referenced); discovery/manifest stores use in-process gate plus cross-process DeleteOnClose lock files, unique temp names, atomic replace, corrupt-snapshot reporting, and best-effort current-user ACLs; filesystem source uses StringBuilder P/Invoke, drive/path error wrapping to unavailable, and invalid-child skipping; IO/access failures retain records as RootUnavailable.
