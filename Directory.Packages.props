@@ -1,0 +1,28 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- xUnit v3 generation (xunit.v3 packages; do not mix with 'xunit' v2) -->
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+
+    <!-- Assertions and mocks -->
+    <PackageVersion Include="FluentAssertions" Version="8.11.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
+
+    <!-- BDD -->
+    <PackageVersion Include="Reqnroll" Version="3.3.4" />
+    <PackageVersion Include="Reqnroll.xunit.v3" Version="3.3.4" />
+
+    <!-- Architecture tests -->
+    <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.4" />
+
+    <!-- Persistence (used from Phase 2/3 onward; pinned now for consistency) -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" Exclude="SemanticVersionCheck" />
+  </ItemGroup>
+
+</Project>
