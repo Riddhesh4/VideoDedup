@@ -60,6 +60,20 @@ The plan's durable queue design (atomic claim, retries, poison jobs, no-duplicat
 
 ## 5. Gaps to add
 
+0. **Reverse-engineering hardening (added 2026-10-15, per user requirement)** — the client
+   must not be trivially reversible:
+   - **Obfuscar 2.2.x (MIT, free)** wired into Release builds after publish/compile:
+     identifier/module renaming via `obfuscar.xml`, output swapped into the distributable
+     while the unobfuscated intermediates are never committed. WPF caveat: exclude
+     XAML-bound types via Obfuscar skip rules; obfuscated Release builds are smoke-tested
+     in CI before packaging.
+   - NativeAOT is **not** a WPF option at .NET 10 (WPF trimming remains unsupportable
+     upstream) — so protection = obfuscation + design, not AOT.
+   - Design rule that matters more than renaming: **the client holds no long-lived
+     secrets**. Scan roots, license state, and settings live in SQLite per-user under
+     `%APPDATA%`; there is nothing worth extracting from a decompiled binary.
+   - `ReadyToRun` is irrelevant for concealment (IL is retained); document so nobody
+     "turns it on for security" later.
 1. **Drive identity is the hard problem, not "DriveId"** — the plan stores `VolumeSignature`, but USB enclosures can change volume signatures across ports/hubs in practice. Amend `StableFileIdentity` to use (volume signature OR size+modifiedTime+path-hash tiebreaker) with a documented precedence, and add a BDD scenario for "same drive, signature mismatch, path matches" → NeedsReview instead of a new file record.
 2. **Network shares are the v1 scope creep** — `\\NAS\Media` scanning (UNC enumeration over SMB) drags in auth, latency, and unavailability semantics that USB paths don't. Cut network shares from Phase 2's definition of done to "discoverable but not scanned by default"; ship local + USB in v1.
 3. **Hashing with no FFmpeg coverage for exotic codecs** — some camera formats (10-bit H.265, RAW variants) decode slowly or fail. Add a codec-support probe to ProbeWorker that marks such files `Unsupported` early instead of letting them burn retry cycles in the two fingerprint workers.

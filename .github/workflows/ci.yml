@@ -26,3 +26,14 @@ jobs:
       # MTP filters are passed after -- in xUnit v3 native syntax.
       - name: Test (all)
         run: dotnet test VideoDedup.slnx --no-build -c Release -- --filter-class-name *_Tests
+
+      # RE-hardening gate: prove obfuscation runs and strips type names.
+      - name: Obfuscation smoke test
+        run: |
+          dotnet publish src/VideoDedup.Domain/VideoDedup.Domain.csproj -c Release -o publish
+          dotnet tool restore
+          pwsh -ExecutionPolicy Bypass -File scripts/obfuscate.ps1
+          if (Get-Content publish/VideoDedup.Domain.dll -Raw -AsByteStream | Select-String -Pattern "ScanState" -Quiet) {
+            Write-Error "Type name 'ScanState' survived obfuscation"
+            exit 1
+          }
