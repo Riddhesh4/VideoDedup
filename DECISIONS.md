@@ -14,6 +14,7 @@ Decisions are append-only. To change one, add a dated superseding decision with 
 8. **Privacy/security:** Local-only processing and per-user storage; no telemetry in v1; no secrets embedded in desktop binaries. Treat files, paths, tool output, and metadata as untrusted. Use argument-list process invocation, resource limits, cancellation, and ACL-protected app data.
 9. **Reverse-engineering posture:** Pin Obfuscar for Release obfuscation to raise the cost of casual inspection. It is friction, not security: assume an owner/admin can reverse engineer or patch the client. Keep no secret or decisive trust boundary in client code. Don't claim AOT, ReadyToRun, string hiding, or obfuscation makes code impossible to inspect. Preserve WPF XAML/reflection behavior and test packaged Release output.
 10. **AI-assisted development:** `PHASE-PROMPTS.md` is the canonical prompt library. Every prompt is bounded, references `ARCHITECTURE.md`, requires tests and explicit Definition of Done, and does not ask the model to reread/regenerate the whole repository. `.cursor/skills/vibecoding-context/SKILL.md` is the short entry point; update its Progress section at each phase boundary.
+11. **Phase 2 persistence bridge:** Discovery records use an atomic per-root JSON snapshot in the current user's LocalAppData until the Phase 3 SQLite schema/repository replaces it. This is a deliberately temporary store; writes use temp-file replacement and source media is never modified.
 
 ## Pending decisions
 

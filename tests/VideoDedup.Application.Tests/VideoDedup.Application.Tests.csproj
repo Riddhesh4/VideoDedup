@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VideoDedup.Application\VideoDedup.Application.csproj" />
+    <ProjectReference Include="..\..\src\VideoDedup.Domain\VideoDedup.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

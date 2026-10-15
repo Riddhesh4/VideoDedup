@@ -6,4 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VideoDedup.Application\VideoDedup.Application.csproj" />
+    <ProjectReference Include="..\VideoDedup.Domain\VideoDedup.Domain.csproj" />
+    <PackageReference Include="System.IO.FileSystem.AccessControl" />
+  </ItemGroup>
+
 </Project>

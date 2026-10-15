@@ -23,6 +23,9 @@
     <!-- Architecture tests -->
     <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.4" />
 
+    <!-- Infrastructure ACL hardening (Phase 2 JSON bridge; per-user LocalAppData protection) -->
+    <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
+
     <!-- Persistence (used from Phase 2/3 onward; pinned now for consistency) -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" Exclude="SemanticVersionCheck" />
   </ItemGroup>

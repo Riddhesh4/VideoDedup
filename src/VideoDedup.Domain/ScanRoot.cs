@@ -54,6 +54,8 @@ public sealed record ScanRoot
         if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Root path must not be blank.", nameof(value));
         var trimmed = value.Trim().Replace('\\', '/');
         if (trimmed.Any(char.IsControl)) throw new ArgumentException("Root path cannot contain control characters.", nameof(value));
+        if (trimmed.Length == 3 && char.IsAsciiLetter(trimmed[0]) && trimmed[1] == ':' && trimmed[2] == '/')
+            return trimmed;
         while (trimmed.Length > 1 && trimmed.EndsWith("/", StringComparison.Ordinal)) trimmed = trimmed[..^1];
         return trimmed;
     }

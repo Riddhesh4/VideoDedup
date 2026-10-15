@@ -27,6 +27,9 @@ public sealed class LayerBoundaryTests
         Types().That().ResideInAssembly(typeof(ScanState).Assembly)
             .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IScanOrchestrator).Assembly))
             .Check(Architecture);
+        Types().That().ResideInAssembly(typeof(IScanOrchestrator).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly))
+            .Check(Architecture);
         Types().That().ResideInAssembly(typeof(ScanState).Assembly)
             .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly))
             .Check(Architecture);

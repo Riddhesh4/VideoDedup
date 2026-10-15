@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VideoDedup.Infrastructure\VideoDedup.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\VideoDedup.Application\VideoDedup.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

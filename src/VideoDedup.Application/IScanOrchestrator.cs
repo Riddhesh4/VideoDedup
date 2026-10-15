@@ -1,8 +1,9 @@
+using VideoDedup.Domain;
+
 namespace VideoDedup.Application;
 
-/// <summary>Placeholder application-layer contract; real scan orchestration arrives in Phase 2.</summary>
+/// <summary>Coordinates a cancellable discovery scan for one configured root.</summary>
 public interface IScanOrchestrator
 {
-    /// <summary>Number of scan roots currently configured.</summary>
-    int ScanRootCount { get; }
+    Task<DiscoveryResult> ScanAsync(ScanRoot root, CancellationToken cancellationToken = default);
 }

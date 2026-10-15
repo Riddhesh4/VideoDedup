@@ -58,8 +58,9 @@ dotnet tool restore                     # Obfuscar, then scripts/obfuscate.ps1 (
 ## Progress
 
 - **Phase 0 — DONE**: bootstrap; CI on GitHub (`Riddhesh4/VideoDedup`), last verified green at `291140a`.
-- **Phase 1 — LOCALLY VERIFIED, ready to commit/push**: pure domain model/value objects (including drive details), deterministic matching policy, complete `VideoFile` scan-state transitions, 33 Domain tests, 2 ArchUnitNET boundary tests. Release build: 0 warnings/errors; solution: 39/39 tests passing; Domain coverage: 96.53% lines / 89.49% branches; CI enforces >=90% Domain line coverage.
-- **Phase 2 — NEXT**: local/USB scan roots and file discovery. See `TASKS.md` for evidence/limitations, `PHASE-PROMPTS.md` for the canonical prompt set, and `ARCHITECTURE.md` / `DECISIONS.md` for current constraints.
+- **Phase 1 — DONE**: domain model/value objects (including drive details), deterministic matching policy, scan-state transitions, 33 Domain tests, 2 ArchUnitNET rules. CI green at commit `9023a6d`; Domain coverage: 96.53% lines / 89.49% branches.
+- **Phase 2 — LOCALLY VERIFIED, uncommitted**: root management and local/USB file discovery; cancellable bounded traversal, global volume-change review, cross-process locked JSON bridge pending Phase 3 SQLite replacement. Release build 0 warnings/errors; solution 59/59 tests; Domain coverage 96.55%. Hardening: global volume-change review, cross-process JSON locking, ACL package pin.
+- **Phase 3 — NEXT**: durable SQLite job queue. See `TASKS.md` for Phase 2 limitations and `PHASE-PROMPTS.md` for the next prompt.
 
 When finishing a phase, **update this `## Progress` section in the same commit** — this is
 the mechanism that keeps sessions cheap.

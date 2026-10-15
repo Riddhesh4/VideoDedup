@@ -14,6 +14,7 @@ the exact source downloaded from, per the Phase 0 licensing gate in PLAN-REVIEW.
 | TngTech.ArchUnitNET.xUnitV3 | 0.13.4 | Apache-2.0 | NuGet; TNG/ArchUnitNET | Test-only architecture rules; requires Windows target because it inspects WPF assembly. |
 | FluentAssertions | 7.2.0 | Apache-2.0 | NuGet; fluentassertions.com | Test-only assertions; pinned to Apache-2.0 release (v8+ has paid commercial-use terms). |
 | dotnet-coverage | 18.12.0 | Microsoft .NET Library License | Local dotnet tool manifest | Development-only local coverage measurement; not included in app distribution. |
+| System.IO.FileSystem.AccessControl | 5.0.0 | MIT | NuGet (dotnet/runtime) | Phase 2 JSON-bridge ACL hardening only; best-effort per-user LocalAppData ACLs. |
 
 ## Rules
 
