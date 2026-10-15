@@ -10,6 +10,7 @@
     <ProjectReference Include="..\VideoDedup.Application\VideoDedup.Application.csproj" />
     <ProjectReference Include="..\VideoDedup.Domain\VideoDedup.Domain.csproj" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
 
 </Project>

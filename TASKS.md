@@ -7,7 +7,7 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 - [x] Phase 0 — Solution foundation, CI, smoke tests, and project docs. Done and CI green at commit `291140a`.
 - [x] Phase 1 — Domain model and matching policy. Evidence: Release build 0 warnings/0 errors; full solution 39/39 tests pass (33 Domain, 2 ArchUnitNET, 4 other unit, 1 BDD); Domain line coverage 96.53%, branch coverage 89.49%; 90% minimum enforced in CI. See phase exit record below.
 - [x] Phase 2 — Scan roots and file discovery. Evidence and remaining adapter/persistence boundary are recorded below.
-- [ ] Phase 3 — Durable SQLite job queue.
+- [x] Phase 3 — Durable SQLite job queue. Evidence and exit record below.
 - [ ] Phase 4 — FFprobe metadata and exact SHA-256 duplicates.
 - [ ] Phase 5 — Visual fingerprints.
 - [ ] Phase 6 — Chromaprint audio fingerprints.
@@ -34,5 +34,13 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 - Hardening: Central Package Management pins System.IO.FileSystem.AccessControl 5.0.0 (System.Security.Principal.Windows is in-box, not referenced); discovery/manifest stores use in-process gate plus cross-process DeleteOnClose lock files, unique temp names, atomic replace, corrupt-snapshot reporting, and best-effort current-user ACLs; filesystem source uses StringBuilder P/Invoke, drive/path error wrapping to unavailable, and invalid-child skipping; IO/access failures retain records as RootUnavailable.
 - Tests: orchestration tests cover first/unchanged/changed/signature-change (same and changed revision)/rename/offline/disabled/network/cancellation; filesystem temporary-dir integration tests cover relative paths, size, deep nesting, drive-signature stability, cancellation, unavailable roots, snapshot persistence, and corrupt-snapshot reporting; BDD scenarios exercise initial scan and offline-root retention.
 - Known limitations: temporary per-user JSON snapshot storage is intentionally replaced by SQLite repository/schema in Phase 3; supported video extensions/pattern matching are conservative and intentionally small; USB detection is currently selected by configured root kind, so hardware enumeration/automatic drive mounting remains outside Phase 2; no packaged WPF scan UI yet.
+
+### Phase 3
+
+- Commit SHA: pending (locally verified, uncommitted).
+- Build/test results: Release build 0 warnings/0 errors. Full solution suite: 91 passed, 0 failed, 0 skipped (59 prior + 17 Application queue-policy + 15 Infrastructure SQLite integration), including 2 architecture tests and 3 BDD scenarios. Domain line coverage 96.55% (>=90% gate passes).
+- Implemented: Application queue contracts (`JobType`, `JobState`, `QueueJob`, `IJobQueue`, versioned payload validation with 64K limit, deterministic FNV-1a backoff/jitter retry policy, `IQueueClock`); Infrastructure `SqliteJobQueue` (WAL initialized outside transactions, per-connection foreign keys + busy timeout >= 5000, `BEGIN IMMEDIATE` claims, in-process single-writer gate, atomic lease acquisition with expired-lease recovery, poison/dead-letter at max attempts, idempotent enqueue with unique active `(FileId, JobType)` index plus race-tolerant re-read, priority ordering, per-drive/global concurrency caps, cancellation-safe transitions that never hold a transaction during processing, transactional v0-to-v1 migration).
+- Tests: payload validation/retry determinism/bounds; roundtrip + stats; reopen durability; true-parallel claim uniqueness (Task.Run; Microsoft.Data.Sqlite async runs inline-sync so bare calls would serialize); batch atomicity; backoff invisibility then poison; stale-lease reclaim; corrupt-payload quarantine; empty + v0 migration; per-transition cancellation; per-drive/global caps; blocking-writer release (background init via Task.Run); lease-owner enforcement; enqueue validation. Corrupt payloads are dead-lettered on read, never returned to workers.
+- Known limitations: Microsoft.Data.Sqlite executes async ADO inline-sync, so a contended queue call can block its caller up to the command timeout and mid-wait cancellation is entry-checked only; mid-flight cancellation still never corrupts state (claim/complete/fail commit atomically or roll back). Discovery JSON bridge is unchanged and still awaits SQLite migration in a later phase; no worker BackgroundServices yet (worker-facing interfaces only).
 
 Never mark a phase complete merely because files were generated. Its prompt's Definition of Done must be demonstrated by the tests/build and, where relevant, the packaged app interface.
