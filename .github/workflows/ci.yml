@@ -25,7 +25,7 @@ jobs:
       # global.json opts the solution into the MTP mode of dotnet test;
       # MTP filters are passed after -- in xUnit v3 native syntax.
       - name: Test (all)
-        run: dotnet test VideoDedup.slnx --no-build -c Release -- --filter-class-name *_Tests
+        run: dotnet test VideoDedup.slnx --no-build -c Release -p:TestingPlatformShowTestsFailure=true -p:TestingPlatformCaptureOutput=false
 
       # RE-hardening gate: prove obfuscation runs and strips type names.
       - name: Obfuscation smoke test
