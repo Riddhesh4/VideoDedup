@@ -210,13 +210,38 @@ public sealed class MediaProcessingTests : IDisposable
         var path = TempFile();
         var before = MediaFileAccess.Revision(path);
         before.FileIdentity.Should().NotBeNull();
+
+        // An in-place rewrite that keeps the size and restores the timestamp is witnessed through file ID
+        // plus NTFS change time. Windows publishes that change time asynchronously (the dirty file record is
+        // written back later), so the witness becomes observable only once the volume reports it: the guard
+        // must reject the old revision exactly when a witness exists, and accept it while every component it
+        // can observe - size, timestamp and witness - still matches.
         File.WriteAllBytes(path, [4, 5, 6]);
         File.SetLastWriteTimeUtc(path, before.ModifiedUtc.UtcDateTime);
-        FluentActions.Invoking(() => MediaFileAccess.Verify(path, before)).Should().Throw<MediaProcessingException>();
+        var rewritten = MediaFileAccess.Revision(path);
+        rewritten.SizeBytes.Should().Be(before.SizeBytes);
+        rewritten.ModifiedUtc.Should().Be(before.ModifiedUtc);
+        if (rewritten.FileIdentity != before.FileIdentity)
+            FluentActions.Invoking(() => MediaFileAccess.Verify(path, before)).Should().Throw<MediaProcessingException>();
+        else
+            MediaFileAccess.Verify(path, before);
+
+        // A same-size, same-timestamp replacement is always witnessed, because the file ID changes.
         var replacement = TempFile("replacement.mp4", [7, 8, 9]);
         File.SetLastWriteTimeUtc(replacement, before.ModifiedUtc.UtcDateTime);
         File.Move(replacement, path, true);
         FluentActions.Invoking(() => MediaFileAccess.Verify(path, before)).Should().Throw<MediaProcessingException>();
+    }
+
+    [Fact]
+    public void Any_single_revision_component_that_drifts_or_reports_a_witness_invalidates_it()
+    {
+        var path = TempFile();
+        var current = MediaFileAccess.Revision(path);
+        MediaFileAccess.Verify(path, current);
+        FluentActions.Invoking(() => MediaFileAccess.Verify(path, current with { FileIdentity = current.FileIdentity + ":witness" })).Should().Throw<MediaProcessingException>();
+        FluentActions.Invoking(() => MediaFileAccess.Verify(path, current with { SizeBytes = current.SizeBytes + 1 })).Should().Throw<MediaProcessingException>();
+        FluentActions.Invoking(() => MediaFileAccess.Verify(path, current with { ModifiedUtc = current.ModifiedUtc.AddSeconds(1) })).Should().Throw<MediaProcessingException>();
     }
 
     [Fact]
