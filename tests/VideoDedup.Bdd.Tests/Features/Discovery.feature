@@ -12,3 +12,9 @@ Scenario: An unavailable root retains its prior index
     Given a local root has already indexed a video
     When the root becomes unavailable and I scan it again
     Then the scan reports the root unavailable and retains the indexed video
+
+Scenario: Re-encoded visuals are candidates only with a usable multi-frame sequence
+    Given two versions of a video have similar fingerprints across three frames
+    When visual candidate evidence is evaluated
+    Then the versions are only a near-match candidate and one frame is insufficient
+    And unrelated visual fingerprints do not become a candidate

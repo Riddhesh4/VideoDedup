@@ -9,7 +9,7 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 - [x] Phase 2 — Scan roots and file discovery. Evidence and remaining adapter/persistence boundary are recorded below.
 - [x] Phase 3 — Durable SQLite job queue. Evidence and exit record below.
 - [x] Phase 4 — FFprobe metadata and exact SHA-256 duplicates (locally verified; not committed).
-- [ ] Phase 5 — Visual fingerprints.
+- [x] Phase 5 — Visual fingerprints (locally verified; uncommitted). See Phase 5 exit evidence below.
 - [ ] Phase 6 — Chromaprint audio fingerprints.
 - [ ] Phase 7 — Match engine (near/partial/cross-root).
 - [ ] Phase 8 — WPF review UI and safe quarantine/undo actions.
@@ -52,6 +52,15 @@ Never mark a phase complete merely because files were generated. Its prompt's De
 - Release build: zero warnings/errors; 114 tests passed, no failures/skips, including real tools, worker roundtrip, failure paths, output bounds, timeout/cancellation, malformed metadata, file locks/staleness and exact hashes. Domain line coverage 96.55%, >=90% gate passed.
 - Pinned BtbN LGPLv3-or-later tools and generated FFV1/PCM fixture prepared by scripts/prepare-media.py; CI runs the same preparation. No media executables or generated media are committed.
 - Limitations: revision checks use size/mtime, not adversarial same-size/time replacement detection; no OS sandbox beyond protocols/allowlist/resource bounds; static media redistribution obligations need packaging review. Known no-video/unknown-codec inputs are terminal Unsupported; other nonzero probes are InvalidData. No remote CI run or commit/push performed for Phase 4.
+
+### Phase 5 local exit evidence
+
+- Final verification after the last code change: Release solution build 0 warnings / 0 errors; full suite 152 passed, 0 failed, 0 skipped (unit, architecture, infrastructure, worker, and Reqnroll BDD); Domain coverage 96.87% line and the 90% gate passed.
+- Generated-media script verifies pinned LGPL FFmpeg/FFprobe archive/configuration and creates deterministic synthetic original, resized/re-encoded, letterboxed, unrelated, black/static, short, VFR, rotated and 10-bit clips; no media/binaries are committed.
+- Real FFmpeg integration verifies deterministic/versioned hashes, resized/re-encoded/letterboxed and rotated candidate behavior, unrelated separation, single-frame rejection, black/static filtering, frame/timestamp bounds, VFR/10-bit/short handling, hostile Unicode paths, output caps and software fallback. SQLite tests cover existing database initialization, reopen roundtrip including unsigned hashes, separate visual failure, cancellation, concurrent open/write, transaction rollback, corrupt values and caps. Hosted processing verifies visual persistence, revision/settings-version enqueue and unchanged rescan suppression.
+- Published Release WPF UI Automation smoke passed twice using the same isolated data directory; scan, visual completion status, shutdown and reopen succeeded. Package output is verified to omit the `media` directory and FFmpeg binaries. The Reqnroll-generated feature class is regenerated from the feature source.
+- No packages added; FFmpeg remains user-prepared and excluded from packaging; licensing certification remains separate. Visual evidence creates candidates only; final sequence matching/classification is Phase 7. Decode work has pixel/allocation/output/frame/thread limits, a 2-minute per-video wall-time budget, 10-second per-frame wall-time budget and 8-second Windows Job Object process CPU-time limit, plus a 512 MiB Job Object memory cap. Administrator/kernel attackers remain outside the threat model.
+- No commit, push, or remote CI run.
 
 ### Phase 4 integrated checkpoint follow-up
 

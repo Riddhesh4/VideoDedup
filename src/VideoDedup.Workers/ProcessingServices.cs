@@ -28,7 +28,8 @@ public sealed class ProcessingService(MediaWorker worker, ILogger<ProcessingServ
 }
 
 public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestrator scanner,
-    IDiscoveryRepository discovery, IMediaProcessingRepository results, IJobQueue queue, IWorkFileAccess access) : IProcessingDashboard
+    IDiscoveryRepository discovery, IMediaProcessingRepository results, IJobQueue queue, IWorkFileAccess access,
+    IVisualProcessingRepository? visuals = null, FrameSamplingPolicy? sampling = null) : IProcessingDashboard
 {
     public async Task ScanAsync(string folder, CancellationToken cancellationToken)
     {
@@ -45,9 +46,16 @@ public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestr
             try { work = access.Capture(file.Id, Path.Combine(root.Path, file.RelativePath)); }
             catch (MediaProcessingException) { continue; }
             var previous = await results.GetAsync(file.Id, cancellationToken).ConfigureAwait(false);
-            if (previous?.Revision == work.Revision && previous.Failure is null && previous.Metadata is not null && previous.Sha256 is not null) continue;
-            foreach (var type in new[] { JobType.Probe, JobType.Hash })
-                await queue.EnqueueAsync(file.Id, type, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
+            if (previous?.Revision != work.Revision || previous.Failure is not null || previous.Metadata is null || previous.Sha256 is null)
+                foreach (var type in new[] { JobType.Probe, JobType.Hash })
+                    await queue.EnqueueAsync(file.Id, type, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
+            if (visuals is not null)
+            {
+                var visual = await visuals.GetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+                if (visual?.IsCurrent(work.Revision, sampling ?? new()) != true ||
+                    (visual.Failure is MediaFailure failure && new MediaProcessingException(failure).Retryable))
+                    await queue.EnqueueAsync(file.Id, JobType.VisualFingerprint, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -58,8 +66,13 @@ public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestr
             foreach (var file in await discovery.GetFilesAsync(root.Id, cancellationToken).ConfigureAwait(false))
             {
                 var result = await results.GetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+                var visual = visuals is null ? null : await visuals.GetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+                var visualCurrent = result is not null && visual?.IsCurrent(result.Revision, sampling ?? new()) == true;
+                var visualStatus = visuals is null ? "Not enabled" : !visualCurrent ? "Pending" :
+                    visual!.Failure?.ToString() ?? $"{visual.Frames.Count(f => f.Disposition == FrameDisposition.Usable)}/{visual.Frames.Count} usable";
                 rows.Add(new ProcessingRow(file.RelativePath, result?.Failure?.ToString() ??
-                    (result?.Metadata is not null && result.Sha256 is not null ? "Complete" : "Pending"), result?.Sha256, result?.Metadata?.VideoCodec));
+                    (result?.Metadata is not null && result.Sha256 is not null && (visuals is null || visualCurrent) ? "Complete" : "Pending"),
+                    result?.Sha256, result?.Metadata?.VideoCodec, visualStatus));
             }
         return rows;
     }

@@ -21,7 +21,8 @@ internal static class Program
         for (var index = 0; index + 1 < args.Length; index++)
             if (args[index] == "--tools") tools = Path.GetFullPath(args[index + 1]);
         var probePath = Path.Combine(tools, "ffprobe.exe");
-        var runner = new ProcessRunner([probePath]);
+        var ffmpegPath = Path.Combine(tools, "ffmpeg.exe");
+        var runner = new ProcessRunner([probePath, ffmpegPath]);
         using var queue = new SqliteJobQueue(Path.Combine(data, "videodedup.db"));
         queue.InitializeAsync(CancellationToken.None).GetAwaiter().GetResult();
         var results = new SqliteMediaProcessingRepository(Path.Combine(data, "videodedup.db"));
@@ -29,16 +30,20 @@ internal static class Program
         var discovery = new DirectoryDiscoveryRepository(Path.Combine(data, "Discovery"));
         var probe = new ProbeWorker(queue, results, new FfprobeMediaProbe(runner, probePath, new DecoderInventory(runner, probePath)));
         var hash = new HashWorker(queue, results, new Sha256ContentHasher());
+        var visuals = new SqliteVisualProcessingRepository(Path.Combine(data, "videodedup.db"));
+        var visual = new VisualFingerprintWorker(queue, results, visuals, new FfprobeMediaProbe(runner, probePath),
+            new FfmpegVisualFingerprinter(runner, ffmpegPath));
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(probe, s.GetRequiredService<ILogger<ProcessingService>>()));
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(hash, s.GetRequiredService<ILogger<ProcessingService>>()));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(visual, s.GetRequiredService<ILogger<ProcessingService>>()));
         using var host = builder.Build();
         host.StartAsync().GetAwaiter().GetResult();
         var app = new App();
         try
         {
             app.Run(new MainWindow(new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery),
-                discovery, results, queue, new WorkFileAccess())));
+                discovery, results, queue, new WorkFileAccess(), visuals)));
         }
         finally { host.StopAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult(); }
     }

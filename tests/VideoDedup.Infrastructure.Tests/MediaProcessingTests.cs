@@ -238,22 +238,46 @@ public sealed class MediaProcessingTests : IDisposable
         var repository = new SqliteMediaProcessingRepository(Path.Combine(_temp, "hosted.db"));
         var roots = new DirectoryScanRootRepository(Path.Combine(_temp, "roots"));
         var discovery = new DirectoryDiscoveryRepository(Path.Combine(_temp, "discovery"));
-        var dashboard = new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery), discovery, repository, queue, new WorkFileAccess());
+        var visuals = new SqliteVisualProcessingRepository(Path.Combine(_temp, "hosted.db"));
+        var dashboard = new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery), discovery, repository, queue, new WorkFileAccess(), visuals);
         await dashboard.ScanAsync(input, TestContext.Current.CancellationToken);
-        (await queue.GetStatsAsync(TestContext.Current.CancellationToken)).Queued.Should().Be(2);
+        (await queue.GetStatsAsync(TestContext.Current.CancellationToken)).Queued.Should().Be(3);
         using var probe = new ProcessingService(new ProbeWorker(queue, repository, new FfprobeMediaProbe(Runner(), Probe, new DecoderInventory(Runner(), Probe))), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
         using var hash = new ProcessingService(new HashWorker(queue, repository, new Sha256ContentHasher()), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
+        var mediaProbe = new FfprobeMediaProbe(Runner(), Probe);
+        using var visual = new ProcessingService(new VisualFingerprintWorker(queue, repository, visuals, mediaProbe,
+            new FfmpegVisualFingerprinter(Runner(), Ffmpeg)), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
         await probe.StartAsync(TestContext.Current.CancellationToken); await hash.StartAsync(TestContext.Current.CancellationToken);
+        await visual.StartAsync(TestContext.Current.CancellationToken);
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(20));
-            while ((await queue.GetStatsAsync(timeout.Token)).Completed != 2) await Task.Delay(100, timeout.Token);
-            (await dashboard.RefreshAsync(timeout.Token)).Should().ContainSingle().Which.Status.Should().Be("Complete");
+            timeout.CancelAfter(TimeSpan.FromSeconds(35));
+            while ((await queue.GetStatsAsync(timeout.Token)).Completed != 3) await Task.Delay(100, timeout.Token);
+            var row = (await dashboard.RefreshAsync(timeout.Token)).Should().ContainSingle().Which;
+            row.Status.Should().Be("Complete");
+            row.Visual.Should().Be("1/1 usable");
+            var storedVisual = await visuals.GetAsync((await discovery.GetFilesAsync((await roots.GetAllAsync(timeout.Token)).Single().Id, timeout.Token)).Single().Id, timeout.Token);
+            storedVisual.Should().NotBeNull(); storedVisual!.Frames.Should().ContainSingle();
             await dashboard.ScanAsync(input, timeout.Token);
-            (await queue.GetStatsAsync(timeout.Token)).Should().Be(new QueueStats(0, 0, 2, 0));
+            (await queue.GetStatsAsync(timeout.Token)).Should().Be(new QueueStats(0, 0, 3, 0));
+            var changedSampling = new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery), discovery, repository, queue, new WorkFileAccess(), visuals,
+                new VideoDedup.Domain.FrameSamplingPolicy(TimeSpan.FromSeconds(5)));
+            await visual.StopAsync(timeout.Token);
+            await changedSampling.ScanAsync(input, timeout.Token);
+            var changedStats = await queue.GetStatsAsync(timeout.Token);
+            changedStats.Queued.Should().Be(1);
+            var rootId = (await roots.GetAllAsync(timeout.Token)).Single().Id;
+            var visualJobs = await queue.ClaimAsync(new QueueClaimRequest("sampling-policy-test", TimeSpan.FromMinutes(1), AllowedJobTypes: [JobType.VisualFingerprint], DriveScope: [rootId.ToString("N")]), timeout.Token);
+            visualJobs.Should().ContainSingle();
+            visualJobs[0].PayloadJson.Should().Contain("sample.mkv");
         }
-        finally { await probe.StopAsync(TestContext.Current.CancellationToken); await hash.StopAsync(TestContext.Current.CancellationToken); }
+        finally
+        {
+            await probe.StopAsync(TestContext.Current.CancellationToken);
+            await hash.StopAsync(TestContext.Current.CancellationToken);
+            await visual.StopAsync(TestContext.Current.CancellationToken);
+        }
     }
 
     public void Dispose()

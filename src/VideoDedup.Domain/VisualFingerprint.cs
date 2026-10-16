@@ -3,12 +3,13 @@ namespace VideoDedup.Domain;
 /// <summary>Perceptual hash and quality for one sampled video frame.</summary>
 public sealed record VisualFingerprint
 {
-    private VisualFingerprint(TimeSpan timestamp, ulong perceptualHash, decimal quality, FingerprintVersion version)
+    private VisualFingerprint(TimeSpan timestamp, ulong perceptualHash, decimal quality, FingerprintVersion version, FrameDisposition disposition)
     {
         Timestamp = timestamp;
         PerceptualHash = perceptualHash;
         Quality = quality;
         Version = version;
+        Disposition = disposition;
     }
 
     public TimeSpan Timestamp { get; }
@@ -20,7 +21,10 @@ public sealed record VisualFingerprint
 
     public FingerprintVersion Version { get; }
 
-    public static VisualFingerprint Create(TimeSpan timestamp, ulong perceptualHash, decimal quality, FingerprintVersion version)
+    public FrameDisposition Disposition { get; }
+
+    public static VisualFingerprint Create(TimeSpan timestamp, ulong perceptualHash, decimal quality, FingerprintVersion version,
+        FrameDisposition disposition = FrameDisposition.Usable)
     {
         if (timestamp < TimeSpan.Zero)
         {
@@ -37,6 +41,7 @@ public sealed record VisualFingerprint
             throw new ArgumentException("Fingerprint version must be a valid positive version.", nameof(version));
         }
 
-        return new VisualFingerprint(timestamp, perceptualHash, quality, version);
+        if (!Enum.IsDefined(disposition)) throw new ArgumentOutOfRangeException(nameof(disposition));
+        return new VisualFingerprint(timestamp, perceptualHash, quality, version, disposition);
     }
 }

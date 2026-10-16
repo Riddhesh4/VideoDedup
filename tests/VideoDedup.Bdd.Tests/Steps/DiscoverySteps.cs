@@ -13,6 +13,9 @@ public sealed class DiscoverySteps
     private FakeRepository _repository = null!;
     private IScanOrchestrator _orchestrator = null!;
     private DiscoveryResult _result = null!;
+    private bool _candidate;
+    private bool _singleFrameCandidate;
+    private bool _unrelatedCandidate;
 
     [Given("a local root contains a supported video and a non-video file")]
     public void GivenLocalRootHasSupportedAndUnsupportedFiles()
@@ -59,6 +62,33 @@ public sealed class DiscoverySteps
         _result.Outcome.Should().Be(DiscoveryOutcome.RootUnavailable);
         _repository.Files.Should().ContainSingle().Which.RelativePath.Should().Be("movie.mp4");
     }
+
+    [Given("two versions of a video have similar fingerprints across three frames")]
+    public void GivenSimilarVisualSequences()
+    {
+        var first = Enumerable.Range(0, 3).Select(i => Visual(TimeSpan.FromSeconds(i), (ulong)(0xFFUL << (i * 8)))).ToArray();
+        var reencoded = first.Select(frame => Visual(frame.Timestamp, frame.PerceptualHash ^ 1)).ToArray();
+        var unrelated = first.Select(frame => Visual(frame.Timestamp, ~frame.PerceptualHash)).ToArray();
+        _candidate = VisualCandidatePolicy.IsCandidate(first, reencoded);
+        _singleFrameCandidate = VisualCandidatePolicy.IsCandidate(first.Take(1).ToArray(), reencoded.Take(1).ToArray());
+        _unrelatedCandidate = VisualCandidatePolicy.IsCandidate(first, unrelated);
+    }
+
+    [When("visual candidate evidence is evaluated")]
+    public void WhenVisualEvidenceEvaluated() { }
+
+    [Then("the versions are only a near-match candidate and one frame is insufficient")]
+    public void ThenNearCandidateRequiresSequence()
+    {
+        _candidate.Should().BeTrue();
+        _singleFrameCandidate.Should().BeFalse();
+    }
+
+    [Then("unrelated visual fingerprints do not become a candidate")]
+    public void ThenUnrelatedVisualsRejected() => _unrelatedCandidate.Should().BeFalse();
+
+    private static VisualFingerprint Visual(TimeSpan timestamp, ulong hash) =>
+        VisualFingerprint.Create(timestamp, hash, 0.8m, VisualAlgorithm.Version);
 
     private static ScanRoot LocalRoot() =>
         ScanRoot.Create(Guid.NewGuid(), "BDD Root", "C:/BDD", ScanRootType.LocalFolder);

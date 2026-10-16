@@ -5,7 +5,7 @@
     <DockPanel Margin="20">
         <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="VideoDedup" FontSize="26" FontWeight="Bold" />
-            <TextBlock Text="Local-only metadata and exact SHA-256 processing. Source files are never modified." Margin="0,8,0,16" />
+            <TextBlock Text="Local-only metadata, exact SHA-256, and visual candidate processing. Source files are never modified." Margin="0,8,0,16" />
             <TextBlock Text="Folder path" />
             <TextBox x:Name="Folder" AutomationProperties.Name="Folder path" Margin="0,4,0,10" />
             <StackPanel Orientation="Horizontal">

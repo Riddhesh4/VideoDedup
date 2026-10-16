@@ -32,7 +32,7 @@ public interface IMediaProcessingRepository
     Task<MediaProcessingRecord?> GetAsync(Guid fileId, CancellationToken cancellationToken);
 }
 
-public sealed record ProcessingRow(string Path, string Status, string? Sha256, string? Codec);
+public sealed record ProcessingRow(string Path, string Status, string? Sha256, string? Codec, string? Visual = null);
 public interface IProcessingDashboard
 {
     Task ScanAsync(string folder, CancellationToken cancellationToken);
