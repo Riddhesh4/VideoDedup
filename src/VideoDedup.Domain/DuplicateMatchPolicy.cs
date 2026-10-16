@@ -18,15 +18,66 @@ public sealed class DuplicateMatchPolicy : IDuplicateMatchPolicy
             string.Equals(candidate.Sha256A, candidate.Sha256B, StringComparison.OrdinalIgnoreCase))
         {
             return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, MatchType.Exact, 1m,
-                ["SHA-256 content hashes are identical."]);
+                ["SHA-256 content hashes are identical."],
+                policyVersion: MatchPolicyOptions.PolicyVersion,
+                visualVersion: CurrentOrNull(candidate.VisualEvidenceVersion, VisualAlgorithm.Version),
+                audioVersion: CurrentOrNull(candidate.AudioEvidenceVersion, AudioAlgorithm.Version),
+                audioOffsetSeconds: candidate.PartialAudioOffsetSeconds,
+                visualSimilarity: candidate.VisualSimilarity,
+                audioSimilarity: candidate.AudioSimilarity);
         }
 
-        var visual = candidate.VisualSimilarity;
-        var audio = candidate.AudioSimilarity;
+        var (visual, audio, visualStale, audioStale) = CurrentEvidence(candidate);
+
+        // Partial clip: short track found inside a longer one. Visual confirmation at the offset decides.
+        if (candidate.PartialAudioSimilarity is decimal partialSimilarity)
+        {
+            var confirmation = visualStale ? null : candidate.VisualSimilarityAtOffset;
+            if (partialSimilarity >= _options.PartialClipThreshold)
+            {
+                if (confirmation is decimal confirmed && confirmed >= _options.ConfirmationThreshold)
+                {
+                    var score = Math.Round((partialSimilarity + confirmed) / 2m, 4);
+                    return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, MatchType.PartialClip, score,
+                        [
+                            $"Sliding-window audio alignment matched {partialSimilarity:P0} at offset {candidate.PartialAudioOffsetSeconds:F1} s.",
+                            $"Visual content at the offset confirms with {confirmed:P0} similarity.",
+                        ],
+                        audioOffsetSeconds: candidate.PartialAudioOffsetSeconds,
+                        policyVersion: MatchPolicyOptions.PolicyVersion,
+                        visualVersion: visualVersionOf(candidate),
+                        audioVersion: audioVersionOf(candidate),
+                        visualSimilarity: confirmation,
+                        audioSimilarity: null);
+                }
+
+                return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, MatchType.NeedsReview,
+                    Math.Round(partialSimilarity, 4),
+                    [
+                        $"Sliding-window audio alignment matched {partialSimilarity:P0} at offset {candidate.PartialAudioOffsetSeconds:F1} s, " +
+                        "but visual content at the offset is unconfirmed; treat as a potential partial clip (concatenation/excerpt) until reviewed.",
+                    ],
+                    audioOffsetSeconds: candidate.PartialAudioOffsetSeconds,
+                    policyVersion: MatchPolicyOptions.PolicyVersion,
+                    visualVersion: visualVersionOf(candidate),
+                    audioVersion: audioVersionOf(candidate),
+                    visualSimilarity: confirmation,
+                    audioSimilarity: null);
+            }
+        }
+
         if (visual is null && audio is null)
         {
-            return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, MatchType.Different, 0m,
-                ["No fingerprint evidence is available."]);
+            var reason = visualStale || audioStale
+                ? $"{(visualStale ? "Visual" : "Audio")} fingerprint evidence is stale for the current algorithm version."
+                : (candidate.PartialAudioSimilarity is null
+                    ? "No fingerprint evidence is available."
+                    : "Partial alignment evidence was too weak for classification.");
+            return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, MatchType.Different, 0m, [reason],
+                policyVersion: MatchPolicyOptions.PolicyVersion,
+                visualVersion: visualVersionOf(candidate),
+                audioVersion: audioVersionOf(candidate),
+                audioOffsetSeconds: candidate.PartialAudioOffsetSeconds);
         }
 
         if (visual is not null && audio is not null &&
@@ -35,14 +86,18 @@ public sealed class DuplicateMatchPolicy : IDuplicateMatchPolicy
         {
             var conflictScore = WeightedScore(visual, audio);
             return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, MatchType.NeedsReview, conflictScore,
-                ["Visual and audio fingerprint evidence conflict; manual review is required."]);
+                ["Visual and audio fingerprint evidence conflict; manual review is required."],
+                visualSimilarity: visual, audioSimilarity: audio,
+                policyVersion: MatchPolicyOptions.PolicyVersion,
+                visualVersion: visualVersionOf(candidate), audioVersion: audioVersionOf(candidate),
+                audioOffsetSeconds: candidate.PartialAudioOffsetSeconds);
         }
 
-        var score = WeightedScore(visual, audio);
+        var weightedScore = WeightedScore(visual, audio);
         var reasons = BuildReasons(visual, audio);
-        var matchType = score >= _options.NearDuplicateThreshold
+        var matchType = weightedScore >= _options.NearDuplicateThreshold
             ? MatchType.NearDuplicate
-            : score >= _options.ReviewThreshold
+            : weightedScore >= _options.ReviewThreshold
                 ? MatchType.NeedsReview
                 : MatchType.Different;
 
@@ -55,11 +110,42 @@ public sealed class DuplicateMatchPolicy : IDuplicateMatchPolicy
             reasons.Add("Available fingerprint similarity is below the review threshold.");
         }
 
-        return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, matchType, score, reasons);
+        if (visualStale) reasons.Add("Stale visual fingerprint version was not used as evidence.");
+        if (audioStale) reasons.Add("Stale audio fingerprint version was not used as evidence.");
+
+        return MatchResult.Create(candidate.FileIdA, candidate.FileIdB, matchType, weightedScore, reasons,
+            visualSimilarity: visual, audioSimilarity: audio,
+            policyVersion: MatchPolicyOptions.PolicyVersion,
+            visualVersion: CurrentOrNull(candidate.VisualEvidenceVersion, VisualAlgorithm.Version),
+            audioVersion: CurrentOrNull(candidate.AudioEvidenceVersion, AudioAlgorithm.Version),
+            audioOffsetSeconds: candidate.PartialAudioOffsetSeconds);
     }
+
+    private (decimal? Visual, decimal? Audio, bool VisualStale, bool AudioStale) CurrentEvidence(MatchCandidate candidate)
+    {
+        var visualStale = candidate.VisualSimilarity is not null && candidate.VisualEvidenceVersion is not null &&
+            candidate.VisualEvidenceVersion != VisualAlgorithm.Version;
+        var audioStale = candidate.AudioSimilarity is not null && candidate.AudioEvidenceVersion is not null &&
+            candidate.AudioEvidenceVersion != AudioAlgorithm.Version;
+        return (visualStale ? null : candidate.VisualSimilarity, audioStale ? null : candidate.AudioSimilarity, visualStale, audioStale);
+    }
+
+    private static FingerprintVersion? CurrentOrNull(FingerprintVersion? provided, FingerprintVersion current) =>
+        provided is null || provided == current ? provided : null;
+
+    private static FingerprintVersion? visualVersionOf(MatchCandidate candidate) =>
+        CurrentOrNull(candidate.VisualEvidenceVersion, VisualAlgorithm.Version);
+
+    private static FingerprintVersion? audioVersionOf(MatchCandidate candidate) =>
+        CurrentOrNull(candidate.AudioEvidenceVersion, AudioAlgorithm.Version);
 
     private decimal WeightedScore(decimal? visual, decimal? audio)
     {
+        if (visual is null && audio is null)
+        {
+            return 0m;
+        }
+
         if (visual is null)
         {
             return audio!.Value;

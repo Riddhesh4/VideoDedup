@@ -10,8 +10,8 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 - [x] Phase 3 — Durable SQLite job queue. Evidence and exit record below.
 - [x] Phase 4 — FFprobe metadata and exact SHA-256 duplicates (locally verified; not committed).
 - [x] Phase 5 — Visual fingerprints (locally verified; uncommitted). See Phase 5 exit evidence below.
-- [x] Phase 6 — Chromaprint audio fingerprints (locally verified; uncommitted). See Phase 6 exit evidence below.
-- [ ] Phase 7 — Match engine (near/partial/cross-root).
+- [x] Phase 6 — Chromaprint audio fingerprints (committed `fd08ee1`, CI run #11 success).
+- [x] Phase 7 — Match engine (locally verified). See Phase 7 exit evidence below.
 - [ ] Phase 8 — WPF review UI and safe quarantine/undo actions.
 - [ ] Phase 9 — Resilience, performance, privacy, and release hardening.
 
@@ -72,6 +72,19 @@ Never mark a phase complete merely because files were generated. Its prompt's De
 - Pinned official acoustid Chromaprint v1.6.2 Windows x86_64 fpcalc release; archive inspected (`fpcalc.exe` only), SHA-256 verified at download in `scripts/prepare-media.py` (also `scripts/audio-tool.json` pin), version checked at runtime. Licensing/provenance recorded in `THIRD-PARTY.md`; redistribution compliance remains a separate gate. `tools/` stays ignored; CI runs the same preparation script.
 - Tests: curated-JSON/argument/timeout/cap construction with Unicode paths, no-audio skip, missing tool/nonzero exit/changed-source typing, parse validity + bounds, pinned-tool repeatability on generated PCM, AAC re-encode fingerprint compatibility, embedded-audio video, real no-audio video, persistence roundtrip/defensive identity/no-audio semantics/checks/corrupt typed, worker success/no-audio/failure-isolation/retryability/cancellation. BDD no-audio scenario regenerated from the feature source.
 - No commit, push, or remote CI run.
+
+### Phase 7 local exit evidence
+
+- Final verification after the last code change: Release solution build 0 warnings / 0 errors; full suite 205 passed, 0 failed, 0 skipped (unit, architecture, infrastructure, worker, and Reqnroll BDD); Domain line coverage 96.87% with the 90% gate passing; published WPF UI Automation smoke passed with all five hosted workers (probe, hash, visual, audio, match).
+- Domain: new pure policies — `VideoSequenceSimilarityPolicy` (index-offset aligned frame comparison with coverage and distinct-hash gates that reject shared intros, black/static repeats and identical-frame degeneracy), `AudioSimilarityPolicy` (little-endian 32-bit word Hamming similarity with offset search, coverage and distinct-word gates that reject silence and repeated themes), `PartialAudioPolicy` (sliding-window alignment of a shorter fingerprint inside a longer container with deterministic earliest-offset tie-breaking, bounded search size, offset in container seconds). `MatchCandidate` gained paired partial evidence (similarity + offset), offset visual confirmation, and evidence versions; `MatchResult` exposes component scores, offset, policy version and `EvidenceVersions`; `MatchPolicyOptions` gained `PartialClipThreshold` (0.85) and `ConfirmationThreshold` (0.80) with a versioned `PolicyVersion` (1,0).
+- Classification: exact SHA-256 outranks everything; stale fingerprint versions are discarded as evidence with explicit reasons; strong partial alignment requires visual confirmation at the offset -> `PartialClip` (score averages both), otherwise `NeedsReview` (never auto-classified); weak partial alignment falls through to whole-file scoring; audio/visual conflict keeps the review rule.
+- Application: `MatchOrchestrator` (`MatchAllAsync`, `MatchFileAsync`) enumerates pairs across all indexed roots deterministically, assembles candidates from fully-processed evidence only, classifies through the Domain policy, and persists every actionable decision (never `Different`) via `IMatchResultRepository` (save/upsert/delete/get-all, canonical FileIdA<FileIdB pairs).
+- Infrastructure: `SqliteMatchResultRepository` (canonical upsert table with versioned components, defensive revalidation before commit, corrupt rows typed InvalidData) and `MatchEvidenceSource` (results + visual + audio joins, ready-only gating).
+- Workers/host: `MatchWorker` bridges `JobType.Match` jobs into the orchestrator, has no per-file failure row, and cancellation leaves the lease; `ProcessingDashboard.ScanAsync` enqueues one deferred Match job per captured file (the worker skips files whose fingerprints are not yet current). Launcher hosts all five workers.
+- fpcalc adapter re-pinned (`-json -length 0 -raw`): payloads are now raw unsigned 32-bit chromaprint words as little-endian bytes; `AudioAlgorithm.Version` bumped to (2,0), so pre-existing audio rows are stale and rescan automatically. Source-verified against chromaprint v1.6.2 `fpcalc.cpp` (research: GitHub acoustid/chromaprint at tag v1.6.2).
+- Fixtures: generated audio now uses a frequency-modulated sweep — a constant tone collapses chromaprint to one repeated word and legitimately carries no match evidence (guards exercised deliberately); new `sample-trim.mkv` stream-copy excerpt. Real-tool integration proves a 4 s trim is a confirmed `PartialClip` at offset <=1 s through fpcalc fingerprints, real FFmpeg frame fingerprints (dense 1 s sampling), one-second-offset confirmation and Domain classification.
+- BDD: new Matching feature covers exact duplicates, near-duplicate with both signals, confirmed partial clip, unconfirmed excerpt to review, and cross-drive orchestration skipping not-ready files.
+- Limitations: match evidence uses whole-file audio and the excerpt alignment only; a single-file scanner per job compares against every other indexed file per claim (O(N) per row) with no incremental pair-diff optimization; no per-file pair-idempotency beyond upsert semantics; Different decisions are never persisted; visual confirmation sampling tolerance is 1 second; administrators/kernel attackers remain outside the threat model. No commit, push, or remote CI run yet.
 
 ### Phase 4 integrated checkpoint follow-up
 

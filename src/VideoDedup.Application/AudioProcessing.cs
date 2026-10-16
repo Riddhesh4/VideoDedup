@@ -50,9 +50,4 @@ public interface IAudioProcessingRepository
     Task<AudioProcessingRecord?> GetAsync(Guid fileId, CancellationToken cancellationToken);
 }
 
-public static class AudioAlgorithm
-{
-    public const string Name = "chromaprint-fpcalc";
-    // fpcalc CLI JSON uses Chromaprint's compressed URL-safe Base64 representation.
-    public static FingerprintVersion Version { get; } = FingerprintVersion.Create(1, 0);
-}
+

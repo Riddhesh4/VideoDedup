@@ -26,22 +26,23 @@ public sealed class AudioFingerprintTests : IDisposable
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     [Fact]
-    public void Parses_valid_base64url_fingerprint_and_rejects_malformed_or_unbounded_json()
+    public void Parses_valid_raw_word_fingerprint_and_rejects_malformed_or_unbounded_json()
     {
         var revision = new FileRevision(10, DateTimeOffset.UnixEpoch);
-        var result = FpcalcAudioFingerprinter.ParseOutput("{\"duration\":8.12,\"fingerprint\":\"AQID-_8\"}", revision);
+        var result = FpcalcAudioFingerprinter.ParseOutput(
+            "{\"duration\":8.12,\"fingerprint\":[1,2,3,251,4294967295]}", revision);
         result.Duration.Should().Be(TimeSpan.FromSeconds(8.12));
         result.HasAudio.Should().BeTrue();
         result.Algorithm.Should().Be(AudioAlgorithm.Name);
         result.Version.Should().Be(AudioAlgorithm.Version);
-        result.Fingerprint!.Data.Should().Equal(new byte[] { 1, 2, 3, 251, 255 });
+        result.Fingerprint!.Data.Should().Equal(new byte[] { 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 251, 0, 0, 0, 255, 255, 255, 255 });
         result.Fingerprint.Start.Should().Be(TimeSpan.Zero);
         result.Fingerprint.End.Should().Be(result.Duration);
-        foreach (var invalid in new[] { "", "{", "{}", "[]", "{\"duration\":0,\"fingerprint\":\"AQ\"}",
-                     "{\"duration\":NaN,\"fingerprint\":\"AQ\"}", "{\"duration\":1,\"fingerprint\":[]}",
-                     "{\"duration\":1,\"fingerprint\":\"!\"}", "{\"duration\":1,\"fingerprint\":\"A\"}" })
+        foreach (var invalid in new[] { "", "{", "{}", "[]", "{\"duration\":0,\"fingerprint\":[1]}",
+                     "{\"duration\":NaN,\"fingerprint\":[1]}", "{\"duration\":1,\"fingerprint\":\"AQ\"}",
+                     "{\"duration\":1,\"fingerprint\":[-1]}", "{\"duration\":1,\"fingerprint\":\"A\"}" })
             FluentActions.Invoking(() => FpcalcAudioFingerprinter.ParseOutput(invalid, revision)).Should().Throw<MediaProcessingException>();
-        var oversized = "{\"duration\":1,\"fingerprint\":\"" + new string('A', FpcalcAudioFingerprinter.MaxFingerprintBytes * 2 + 1) + "\"}";
+        var oversized = "{\"duration\":1,\"fingerprint\":[" + string.Join(",", Enumerable.Repeat("1", FpcalcAudioFingerprinter.MaxFingerprintBytes / 4 + 1)) + "]}";
         FluentActions.Invoking(() => FpcalcAudioFingerprinter.ParseOutput(oversized, revision)).Should().Throw<MediaProcessingException>()
             .Which.Failure.Should().Be(MediaFailure.OutputLimit);
         FluentActions.Invoking(() => FpcalcAudioFingerprinter.ParseOutput(new string(' ', FpcalcAudioFingerprinter.MaxJsonBytes + 1), revision))
@@ -56,10 +57,10 @@ public sealed class AudioFingerprintTests : IDisposable
         runner.RunAsync(Arg.Any<ProcessRequest>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             var request = call.Arg<ProcessRequest>();
-            request.Arguments.Should().Equal("-json", "-length", "0", path);
+            request.Arguments.Should().Equal("-json", "-length", "0", "-raw", path);
             request.Timeout.Should().Be(TimeSpan.FromMinutes(5));
             request.MaxOutputBytes.Should().Be(FpcalcAudioFingerprinter.MaxJsonBytes);
-            return new ProcessResult(0, "{\"duration\":2,\"fingerprint\":\"AQID\"}", "");
+            return new ProcessResult(0, "{\"duration\":2,\"fingerprint\":[1,2,3]}", "");
         });
         var adapter = new FpcalcAudioFingerprinter(runner, Fpcalc);
         var withAudio = await adapter.FingerprintAsync(path, MediaFileAccess.Revision(path), Metadata(true), Token);
@@ -86,7 +87,7 @@ public sealed class AudioFingerprintTests : IDisposable
         runner.RunAsync(Arg.Any<ProcessRequest>(), Arg.Any<CancellationToken>()).Returns(_ =>
         {
             File.AppendAllText(path, "changed");
-            return new ProcessResult(0, "{\"duration\":1,\"fingerprint\":\"AQID\"}", "");
+            return new ProcessResult(0, "{\"duration\":1,\"fingerprint\":[1,2,3]}", "");
         });
         await FluentActions.Awaiting(() => new FpcalcAudioFingerprinter(runner, Fpcalc)
                 .FingerprintAsync(path, MediaFileAccess.Revision(path) with { SizeBytes = 1 }, Metadata(true), Token))

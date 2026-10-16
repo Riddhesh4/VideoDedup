@@ -1,4 +1,6 @@
 using VideoDedup.Application;
+using VideoDedup.Domain;
+
 namespace VideoDedup.Workers;
 
 public sealed class AudioFingerprintWorker(IJobQueue queue, IAudioProcessingRepository repository,

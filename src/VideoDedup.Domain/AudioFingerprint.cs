@@ -1,5 +1,14 @@
 namespace VideoDedup.Domain;
 
+public static class AudioAlgorithm
+{
+    public const string Name = "chromaprint-fpcalc";
+    // v2.0 re-pins stored payloads to fpcalc's raw unsigned 32-bit word list (-json -raw) as
+    // little-endian bytes, because Phase 7 similarity needs true word bit patterns; v1.0 stored
+    // decoded bytes of chromaprint's compressed encoding, which cannot be Hamming-compared.
+    public static FingerprintVersion Version { get; } = FingerprintVersion.Create(2, 0);
+}
+
 /// <summary>Chromaprint-like fingerprint for a bounded audio segment.</summary>
 public sealed record AudioFingerprint
 {

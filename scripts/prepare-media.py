@@ -36,9 +36,12 @@ for name in ('ffmpeg', 'ffprobe'):
     (target / (name + '-version.txt')).write_text(config)
 fixture = root / 'TestFixtures/generated/sample.mkv'
 fixture.parent.mkdir(parents=True, exist_ok=True)
+# Audio varies over time (frequency modulation) so chromaprint emits spectrally distinct words;
+# a constant tone would collapse to one repeated word and legitimately carry no match evidence.
+sweep = 'aevalsrc=sin(2*PI*(120*t+40*sin(2*PI*0.5*t)*t)):sample_rate=44100:duration=8'
 subprocess.run([str(target / 'ffmpeg.exe'), '-nostdin', '-v', 'error', '-y',
                 '-f', 'lavfi', '-i', 'testsrc=size=64x48:rate=5:duration=8',
-                '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=44100:duration=8',
+                '-f', 'lavfi', '-i', sweep,
                 '-map', '0:v', '-map', '1:a', '-c:v', 'ffv1', '-c:a', 'pcm_s16le',
                 '-fflags', '+bitexact', '-flags:v', '+bitexact', '-flags:a', '+bitexact',
                 '-map_metadata', '-1', str(fixture)], check=True, timeout=30)
@@ -74,9 +77,11 @@ def convert(name, args, source='visual-original.mkv'):
 generate('visual-original.mkv')
 generate('visual-unrelated.mkv', variant=1)
 generate('visual-static.mkv', static=True)
-subprocess.run([ffmpeg, '-nostdin', '-v', 'error', '-y', '-f', 'lavfi', '-i',
-                'sine=frequency=440:sample_rate=44100:duration=8', '-c:a', 'pcm_s16le',
-                str(output / 'audio-sine.wav')], check=True, timeout=30)
+# Partial-clip fixture: a byte-identical trim of the primary fixture for excerpt alignment testing.
+subprocess.run([ffmpeg, '-nostdin', '-v', 'error', '-y', '-t', '4', '-i', str(fixture), '-c', 'copy',
+                str(output / 'sample-trim.mkv')], check=True, timeout=30)
+subprocess.run([ffmpeg, '-nostdin', '-v', 'error', '-y', '-f', 'lavfi', '-i', sweep,
+                '-c:a', 'pcm_s16le', str(output / 'audio-sine.wav')], check=True, timeout=30)
 subprocess.run([ffmpeg, '-nostdin', '-v', 'error', '-y', '-i', str(output / 'audio-sine.wav'),
                 '-c:a', 'aac', '-b:a', '128k', str(output / 'audio-sine-aac.m4a')], check=True, timeout=30)
 convert('visual-resized.mp4', ['-vf', 'scale=64:48', '-c:v', 'mpeg4', '-q:v', '5', '-pix_fmt', 'yuv420p'])

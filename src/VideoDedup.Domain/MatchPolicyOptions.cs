@@ -31,6 +31,25 @@ public sealed record MatchPolicyOptions
         ConflictHighThreshold = conflictHighThreshold;
         ConflictLowThreshold = conflictLowThreshold;
         VisualWeight = visualWeight;
+        PartialClipThreshold = MatchPolicyDefaults.PartialClipThreshold;
+        ConfirmationThreshold = MatchPolicyDefaults.ConfirmationThreshold;
+    }
+
+    /// <summary>Extended constructor adding partial-clip thresholds for callers that need custom partial behavior.</summary>
+    public MatchPolicyOptions(
+        decimal nearDuplicateThreshold,
+        decimal reviewThreshold,
+        decimal conflictHighThreshold,
+        decimal conflictLowThreshold,
+        decimal visualWeight,
+        decimal partialClipThreshold,
+        decimal confirmationThreshold)
+        : this(nearDuplicateThreshold, reviewThreshold, conflictHighThreshold, conflictLowThreshold, visualWeight)
+    {
+        ValidateUnit(partialClipThreshold, nameof(partialClipThreshold));
+        ValidateUnit(confirmationThreshold, nameof(confirmationThreshold));
+        PartialClipThreshold = partialClipThreshold;
+        ConfirmationThreshold = confirmationThreshold;
     }
 
     public decimal NearDuplicateThreshold { get; }
@@ -38,7 +57,12 @@ public sealed record MatchPolicyOptions
     public decimal ConflictHighThreshold { get; }
     public decimal ConflictLowThreshold { get; }
     public decimal VisualWeight { get; }
+    public decimal PartialClipThreshold { get; }
+    public decimal ConfirmationThreshold { get; }
     public decimal AudioWeight => 1m - VisualWeight;
+
+    /// <summary>Version of the threshold configuration; persisted with every decision.</summary>
+    public static FingerprintVersion PolicyVersion { get; } = FingerprintVersion.Create(1, 0);
 
     public static MatchPolicyOptions Default { get; } = new(
         nearDuplicateThreshold: 0.90m,
@@ -54,4 +78,10 @@ public sealed record MatchPolicyOptions
             throw new ArgumentOutOfRangeException(parameterName, value, "Value must be in [0, 1].");
         }
     }
+}
+
+static file class MatchPolicyDefaults
+{
+    public const decimal PartialClipThreshold = 0.85m;
+    public const decimal ConfirmationThreshold = 0.80m;
 }

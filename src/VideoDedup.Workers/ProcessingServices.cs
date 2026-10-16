@@ -63,6 +63,9 @@ public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestr
                     (audio.Failure is MediaFailure failure && new MediaProcessingException(failure).Retryable))
                     await queue.EnqueueAsync(file.Id, JobType.AudioFingerprint, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
             }
+            // Matching runs last: the match worker skips files whose fingerprints are not yet current,
+            // so enqueueing here is harmless while fingerprint work still queues.
+            await queue.EnqueueAsync(file.Id, JobType.Match, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
         }
     }
 

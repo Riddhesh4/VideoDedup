@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using VideoDedup.Application;
 using VideoDedup.Desktop;
 using VideoDedup.Infrastructure;
+using VideoDedup.Domain;
 using VideoDedup.Workers;
 
 internal static class Program
@@ -40,11 +41,17 @@ internal static class Program
         var audios = new SqliteAudioProcessingRepository(Path.Combine(data, "videodedup.db"));
         var audio = new AudioFingerprintWorker(queue, audios, results, new FfprobeMediaProbe(runner, probePath),
             new FpcalcAudioFingerprinter(runner, Path.Combine(audioTools, "chromaprint-fpcalc-1.6.2-windows-x86_64", "fpcalc.exe")));
+        var matching = new MatchOrchestrator(
+            new MatchEvidenceSource(discovery, roots, results, visuals, audios),
+            new SqliteMatchResultRepository(Path.Combine(data, "videodedup.db")),
+            new DuplicateMatchPolicy(MatchPolicyOptions.Default));
+        var match = new MatchWorker(queue, matching);
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(probe, s.GetRequiredService<ILogger<ProcessingService>>()));
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(hash, s.GetRequiredService<ILogger<ProcessingService>>()));
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(visual, s.GetRequiredService<ILogger<ProcessingService>>()));
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(audio, s.GetRequiredService<ILogger<ProcessingService>>()));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(match, s.GetRequiredService<ILogger<ProcessingService>>()));
         using var host = builder.Build();
         host.StartAsync().GetAwaiter().GetResult();
         var app = new App();

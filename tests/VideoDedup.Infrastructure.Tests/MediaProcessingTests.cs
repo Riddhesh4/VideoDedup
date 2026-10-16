@@ -41,7 +41,7 @@ public sealed class MediaProcessingTests : IDisposable
         probe.Metadata.Width.Should().Be(64);
         probe.Metadata.Height.Should().Be(48);
         probe.Metadata.VideoCodec.Should().Be("ffv1");
-        probe.Metadata.HasAudio.Should().BeTrue();
+        probe.Metadata                .HasAudio.Should().BeTrue();
         probe.Metadata.FrameRate.Should().Be(5);
         probe.Metadata.DurationSeconds.Should().BeApproximately(8, 0.1);
         var hasher = new Sha256ContentHasher();
@@ -241,7 +241,9 @@ public sealed class MediaProcessingTests : IDisposable
         var visuals = new SqliteVisualProcessingRepository(Path.Combine(_temp, "hosted.db"));
         var dashboard = new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery), discovery, repository, queue, new WorkFileAccess(), visuals);
         await dashboard.ScanAsync(input, TestContext.Current.CancellationToken);
-        (await queue.GetStatsAsync(TestContext.Current.CancellationToken)).Queued.Should().Be(3);
+        // Probe + Hash + VisualFingerprint enqueue only (no audio store), plus one deferred Match job
+        // that the match worker skips while fingerprints are still outstanding.
+        (await queue.GetStatsAsync(TestContext.Current.CancellationToken)).Queued.Should().Be(4);
         using var probe = new ProcessingService(new ProbeWorker(queue, repository, new FfprobeMediaProbe(Runner(), Probe, new DecoderInventory(Runner(), Probe))), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
         using var hash = new ProcessingService(new HashWorker(queue, repository, new Sha256ContentHasher()), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
         var mediaProbe = new FfprobeMediaProbe(Runner(), Probe);
@@ -260,13 +262,14 @@ public sealed class MediaProcessingTests : IDisposable
             var storedVisual = await visuals.GetAsync((await discovery.GetFilesAsync((await roots.GetAllAsync(timeout.Token)).Single().Id, timeout.Token)).Single().Id, timeout.Token);
             storedVisual.Should().NotBeNull(); storedVisual!.Frames.Should().ContainSingle();
             await dashboard.ScanAsync(input, timeout.Token);
-            (await queue.GetStatsAsync(timeout.Token)).Should().Be(new QueueStats(0, 0, 3, 0));
+            // Probe/Hash/Visual completed; the Match job remains queued because the full pipeline is absent here.
+            (await queue.GetStatsAsync(timeout.Token)).Should().Be(new QueueStats(1, 0, 3, 0));
             var changedSampling = new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery), discovery, repository, queue, new WorkFileAccess(), visuals,
                 new VideoDedup.Domain.FrameSamplingPolicy(TimeSpan.FromSeconds(5)));
             await visual.StopAsync(timeout.Token);
             await changedSampling.ScanAsync(input, timeout.Token);
             var changedStats = await queue.GetStatsAsync(timeout.Token);
-            changedStats.Queued.Should().Be(1);
+            changedStats.Queued.Should().Be(2, "the rescan adds a VisualFingerprint job for changed sampling; the deferred Match job is already queued");
             var rootId = (await roots.GetAllAsync(timeout.Token)).Single().Id;
             var visualJobs = await queue.ClaimAsync(new QueueClaimRequest("sampling-policy-test", TimeSpan.FromMinutes(1), AllowedJobTypes: [JobType.VisualFingerprint], DriveScope: [rootId.ToString("N")]), timeout.Token);
             visualJobs.Should().ContainSingle();

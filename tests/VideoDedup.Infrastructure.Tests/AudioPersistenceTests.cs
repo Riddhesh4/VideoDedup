@@ -29,8 +29,9 @@ public sealed class AudioPersistenceTests : IDisposable
         stored.IsCurrent(revision).Should().BeTrue();
         stored.IsCurrent(revision with { FileIdentity = "replacement" }).Should().BeFalse();
         stored.IsCurrent(revision).Should().BeTrue();
-        AudioProcessingRecord.Create(fileId, revision, AudioAlgorithm.Name, FingerprintVersion.Create(2, 0),
-            TimeSpan.FromSeconds(8), new byte[] { 1, 2, 255, 0 }, true).IsCurrent(revision).Should().BeFalse();
+        AudioProcessingRecord.Create(fileId, revision, AudioAlgorithm.Name, FingerprintVersion.Create(3, 0),
+            TimeSpan.FromSeconds(8), new byte[] { 1, 2, 255, 0 }, true).IsCurrent(revision).Should().BeFalse(
+            "records must stop being current when the algorithm publishes a newer version");
         var exposed = stored.Fingerprint; exposed[0] = 0;
         stored.Fingerprint.Should().Equal(new byte[] { 1, 2, 255, 0 });
 
