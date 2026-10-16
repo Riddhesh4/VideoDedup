@@ -33,8 +33,14 @@ jobs:
 
       # global.json opts the solution into the MTP mode of dotnet test;
       # MTP filters are passed after -- in xUnit v3 native syntax.
+      - name: Prepare audited LGPL media tools and fixture
+        run: python scripts/prepare-media.py
+
       - name: Test (all)
         run: dotnet test VideoDedup.slnx --no-build -c Release -p:TestingPlatformShowTestsFailure=true -p:TestingPlatformCaptureOutput=false
+
+      - name: Publish desktop checkpoint (no bundled media)
+        run: powershell -NoProfile -File scripts/package-desktop.ps1
 
       # RE-hardening gate: prove obfuscation runs and strips type names.
       - name: Obfuscation smoke test

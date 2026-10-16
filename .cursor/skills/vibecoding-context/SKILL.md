@@ -60,7 +60,9 @@ dotnet tool restore                     # Obfuscar, then scripts/obfuscate.ps1 (
 - **Phase 0 — DONE**: bootstrap; CI on GitHub (`Riddhesh4/VideoDedup`), last verified green at `291140a`.
 - **Phase 1 — DONE**: domain model/value objects (including drive details), deterministic matching policy, scan-state transitions, 33 Domain tests, 2 ArchUnitNET rules. CI green at commit `9023a6d`; Domain coverage: 96.53% lines / 89.49% branches.
 - **Phase 2 — DONE (committed as 3d67e0a, CI ci #6 green on main)**: root management and local/USB file discovery; cancellable bounded traversal, global volume-change review, cross-process locked JSON bridge pending Phase 3 SQLite replacement. Release build 0 warnings/errors; solution 59/59 tests; Domain coverage 96.55%. Hardening: global volume-change review, cross-process JSON locking, ACL package pin.
-- **Phase 3 — LOCALLY VERIFIED, uncommitted**: durable SQLite job queue (WAL, BEGIN IMMEDIATE claims, leases, poison/dead-letter, migrations). Release build 0 warnings/errors; solution 91/91 tests; Domain coverage 96.55%. See `TASKS.md` for Phase 2 limitations and `PHASE-PROMPTS.md` for the next prompt.
+- **Phase 3 — DONE (7766a91, CI #8 green)**: durable SQLite job queue (WAL, BEGIN IMMEDIATE claims, leases, poison/dead-letter, migrations). Release build 0 warnings/errors; solution 91/91 tests; Domain coverage 96.55%. See `TASKS.md` for Phase 2 limitations and `PHASE-PROMPTS.md` for the next prompt.
+
+- **Phase 4 — LOCALLY VERIFIED, uncommitted**: FFprobe metadata, bounded process runner, streaming SHA-256, SQLite results, queue-driven Probe/Hash worker iterations. 117 tests; hosted services/discovery enqueue, decoder inventory, Windows strong revision evidence, WPF dashboard via Launcher; pinned LGPLv3 tools via scripts/prepare-media.py. See TASKS.md for integration/packaging limitations.
 
 When finishing a phase, **update this `## Progress` section in the same commit** — this is
 the mechanism that keeps sessions cheap.

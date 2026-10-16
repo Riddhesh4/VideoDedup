@@ -6,7 +6,7 @@ the exact source downloaded from, per the Phase 0 licensing gate in PLAN-REVIEW.
 
 | Component | Version | License | Source | Notes |
 |---|---|---|---|---|
-| FFmpeg + FFprobe (planned, Phase 4) | _pinned at adoption_ | LGPL-2.1-or-later | BtbN FFmpeg-Builds GitHub releases (**LGPL** variant, not gyan.dev) | Decode-only use; never enable GPL libs. Download step lives in CI from week one. |
+| FFmpeg + FFprobe | n8.1.3-18-g46d899d7a0 | LGPL-3.0-or-later | Dated BtbN release; see pin below | Runtime -L and configuration audited; CI verifies archive hash before use. |
 | fpcalc / Chromaprint (planned, Phase 6) | 1.6.2 | LGPL-2.1-or-later | acoustid/chromaprint GitHub releases (`chromaprint-fpcalc-1.6.2-windows-x86_64.zip`) | Ship runtime files together; do not extract only the EXE. Auto-fetch via GitHub releases API. |
 | SQLite (via Microsoft.Data.Sqlite) | 10.0.13 | MIT | nuget.org | Managed provider; SQLite itself is public domain. |
 | .NET 10 SDK / runtime | 10.0.402 | MIT | dotnet.microsoft.com | Build tooling only. |
@@ -22,3 +22,14 @@ the exact source downloaded from, per the Phase 0 licensing gate in PLAN-REVIEW.
    a GPL artifact (e.g. a gyan.dev FFmpeg build) requires a documented exception in DECISIONS.md.
 2. Every new external binary gets a row here **in the same commit** that starts using it.
 3. Pinned versions change only via PR with the reason recorded in DECISIONS.md.
+
+## Phase 4 pinned media tools
+
+BtbN `n8.1.3-18-g46d899d7a0`, Windows x64 static LGPL variant.
+Archive: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-15-13-03/ffmpeg-n8.1.3-18-g46d899d7a0-win64-lgpl-8.1.zip
+SHA-256: `dc725e2f9b1c6d829c1d0a2ceffa28bffb3b54468e972f7467a38021ff6032aa` (GitHub asset digest; locally verify before extraction).
+License: LGPL-3.0-or-later; retain archive LICENSE and notices. Runtime build configuration must contain no `--enable-gpl` or `--enable-nonfree`. Downloaded tools live in ignored `tools/media`; no executable is committed. Build configuration/license audit evidence is recorded after verification.
+
+Verified executable SHA-256: ffmpeg.exe `3b57117b384df98f2b8d01876df0a596a0b6ebf45f756b30f15d6f65ab8251c5`; ffprobe.exe `5b9724ee7a115d5a8458d41bd2e0ce6206847e2b76105e822061a4421322cde9`. Both report LGPL version 3 or later via `-L`; configuration enables version3 and omits GPL/nonfree enabling flags. Static archive has no runtime DLLs; retain LICENSE.txt. Distribution must include required LGPL/GPLv3 incorporated license text and corresponding source/relink compliance; this development setup is not a packaging/legal compliance certification.
+
+- Microsoft.Extensions.Hosting 10.0.13, MIT, NuGet/dotnet runtime: hosted worker lifecycle. Desktop packaging excludes FFmpeg/FFprobe; see docs/MEDIA-COMPLIANCE.md for the redistribution gate.

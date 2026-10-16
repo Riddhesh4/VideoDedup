@@ -4,6 +4,7 @@
     <Project Path="src/VideoDedup.Desktop/VideoDedup.Desktop.csproj" />
     <Project Path="src/VideoDedup.Domain/VideoDedup.Domain.csproj" />
     <Project Path="src/VideoDedup.Infrastructure/VideoDedup.Infrastructure.csproj" />
+    <Project Path="src/VideoDedup.Launcher/VideoDedup.Launcher.csproj" />
     <Project Path="src/VideoDedup.Workers/VideoDedup.Workers.csproj" />
   </Folder>
   <Folder Name="/tests/">

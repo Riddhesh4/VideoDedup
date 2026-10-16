@@ -21,3 +21,7 @@ Decisions are append-only. To change one, add a dated superseding decision with 
 - Exact FFmpeg and fpcalc artifact versions/hashes must be pinned when introduced in their implementation phases and recorded in `THIRD-PARTY.md`.
 - Confirm commercial distribution/licensing with counsel before publishing bundled LGPL media binaries; this log is not legal advice.
 - Windows code signing certificate and signing pipeline are not selected; unsigned releases must be labeled as such.
+
+## Phase 4 approved scope expansion
+
+User approved integrated desktop checkpoint: hosted processing, automatic discovery enqueue, decoder inventory, Windows file-ID/change-time evidence and minimal WPF dashboard. VideoDedup.Launcher is the composition root; Desktop still depends only on Application. Infrastructure adapts the Application file-access port. Microsoft.Extensions.Hosting 10.0.13 (MIT) supplies hosted-service lifecycle. Static FFmpeg redistribution is excluded from the checkpoint and packaging fails on a bundled media directory; see docs/MEDIA-COMPLIANCE.md.

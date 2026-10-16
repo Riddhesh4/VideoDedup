@@ -169,6 +169,8 @@ public sealed class DirectoryDiscoveryRepository : IDiscoveryRepository
             security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
             security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(identity,
                 System.Security.AccessControl.FileSystemRights.FullControl,
+                System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                System.Security.AccessControl.PropagationFlags.None,
                 System.Security.AccessControl.AccessControlType.Allow));
             new DirectoryInfo(_dataDirectory).SetAccessControl(security);
         }

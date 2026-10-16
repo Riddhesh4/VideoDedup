@@ -8,7 +8,7 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 - [x] Phase 1 — Domain model and matching policy. Evidence: Release build 0 warnings/0 errors; full solution 39/39 tests pass (33 Domain, 2 ArchUnitNET, 4 other unit, 1 BDD); Domain line coverage 96.53%, branch coverage 89.49%; 90% minimum enforced in CI. See phase exit record below.
 - [x] Phase 2 — Scan roots and file discovery. Evidence and remaining adapter/persistence boundary are recorded below.
 - [x] Phase 3 — Durable SQLite job queue. Evidence and exit record below.
-- [ ] Phase 4 — FFprobe metadata and exact SHA-256 duplicates.
+- [x] Phase 4 — FFprobe metadata and exact SHA-256 duplicates (locally verified; not committed).
 - [ ] Phase 5 — Visual fingerprints.
 - [ ] Phase 6 — Chromaprint audio fingerprints.
 - [ ] Phase 7 — Match engine (near/partial/cross-root).
@@ -44,3 +44,21 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 - Known limitations: Microsoft.Data.Sqlite executes async ADO inline-sync, so a contended queue call can block its caller up to the command timeout and mid-wait cancellation is entry-checked only; mid-flight cancellation still never corrupts state (claim/complete/fail commit atomically or roll back). Discovery JSON bridge is unchanged and still awaits SQLite migration in a later phase; no worker BackgroundServices yet (worker-facing interfaces only).
 
 Never mark a phase complete merely because files were generated. Its prompt's Definition of Done must be demonstrated by the tests/build and, where relevant, the packaged app interface.
+
+### Phase 4 local exit evidence
+
+- Implemented typed media ports, allowlisted ArgumentList process runner (30s probe deadline, combined 1 MiB output cap, process-tree cleanup), defensive FFprobe metadata parser, revision checks and 64 KiB-buffer streaming SHA-256 (5-minute deadline).
+- Probe/Hash queue worker iterations persist metadata/hash/failure in SQLite media_results, preserve results only within the same revision, and retry transient failures; cancellation leaves the lease for recovery. Host integration remains explicit via RunOnceAsync off the UI thread; no Desktop scan UI or discovery-to-processing auto-enqueue is added.
+- Release build: zero warnings/errors; 114 tests passed, no failures/skips, including real tools, worker roundtrip, failure paths, output bounds, timeout/cancellation, malformed metadata, file locks/staleness and exact hashes. Domain line coverage 96.55%, >=90% gate passed.
+- Pinned BtbN LGPLv3-or-later tools and generated FFV1/PCM fixture prepared by scripts/prepare-media.py; CI runs the same preparation. No media executables or generated media are committed.
+- Limitations: revision checks use size/mtime, not adversarial same-size/time replacement detection; no OS sandbox beyond protocols/allowlist/resource bounds; static media redistribution obligations need packaging review. Known no-video/unknown-codec inputs are terminal Unsupported; other nonzero probes are InvalidData. No remote CI run or commit/push performed for Phase 4.
+
+### Phase 4 integrated checkpoint follow-up
+
+- Approved expansion implemented: Generic Host ProcessingService, discovery-to-Probe/Hash enqueue, unchanged-completed rescan suppression, cached video decoder inventory, volume/file ID plus Windows change-time revision evidence, SQLite identity migration, and minimal WPF dashboard through Application facade with separate Launcher composition root.
+- New tests cover hosted end-to-end discovery, real decoder inventory and timestamp-preserving same-size rewrites/replacement. 117 tests total. Build and published WPF smoke exercised folder entry, Scan invocation, completed result and clean shutdown.
+- Packaging excludes static media tools and blocks accidental inclusion; legal/static-source compliance certification remains intentionally unclaimed. CI publishes the no-media desktop checkpoint.
+- Windows profile ACL inheritance bug repaired in repository code; existing development LocalAppData files created under the old broken ACL remain inaccessible. Windows refused non-elevated repair; no bypass attempted. Smoke uses isolated --data directory. Existing affected profiles require explicit ACL recovery; no source media affected.
+- File ID/change time is not protection against administrator/kernel tampering. FAT/exotic filesystem change-time precision may differ. UI is a processing checkpoint, not Phase 8 review/quarantine UI.
+
+- Published Release WPF smoke passed twice with the same isolated data directory, proving shutdown/reopen after ACL-inheritance repair. Strong revision regression and hosted unchanged-rescan regression pass. Desktop package is an unobfuscated development checkpoint, not a production installer; existing Domain obfuscation CI gate remains in place.

@@ -8,3 +8,6 @@ publish/
 publish-obfuscated/
 obfuscar.generated.xml
 obfuscar.log
+
+tools/media/
+TestFixtures/generated/
