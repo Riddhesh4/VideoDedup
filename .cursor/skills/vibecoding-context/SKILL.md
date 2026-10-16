@@ -67,6 +67,8 @@ dotnet tool restore                     # Obfuscar, then scripts/obfuscate.ps1 (
 - **Phase 6 — DONE (fd08ee1, CI #11 green on main)**: chromaprint audio fingerprints via pinned fpcalc 1.6.2 (SHA-256-verified download), isolated `audio_results` SQLite store, no-audio normal skips, packaging guard also blocks the audio tools directory; pin recorded in THIRD-PARTY.md.
 - **Phase 7 — DONE (ac46927 + a02eba0, CI #14 green on main)**: match engine — Domain sequence/word similarity policies, sliding-window partial alignment, stale-version discards, confirmation-gated partial clips; MatchOrchestrator + canonical SQLite match_results + MatchWorker + deferred per-file Match jobs; fpcalc adapter re-pinned to raw word arrays (`AudioAlgorithm.Version` (2,0)); FM-sweep audio fixtures; real-tool partial-clip integration; BDD Matching feature. 206/206 tests; Domain coverage 96.87%; WPF smoke passed. `a02eba0` made the NTFS change-time identity test deterministic and added check annotations for CI failures. See TASKS.md phase exit evidence.
 
+- **Phase 8 — DONE (locally verified, awaiting commit)**: WPF review UI and safe quarantine — pure Domain quarantine policies, `ReviewService` grouping, `QuarantineService` (confirmed, collision-safe, undoable, crash-recovering), intent-first SQLite quarantine log, review decisions, bounded FFmpeg aligned previews, worker pause/resume gate, MVVM review/processing view models, and the new `VideoDedup.Desktop.Tests` project. 331/331 tests; Domain coverage 94.01%; packaged WPF UI Automation smoke passes and now checks review-control accessibility. See TASKS.md phase exit evidence.
+
 When finishing a phase, **update this `## Progress` section in the same commit** — this is
 the mechanism that keeps sessions cheap.
 

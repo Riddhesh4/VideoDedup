@@ -38,6 +38,13 @@ public interface IProcessingDashboard
     Task ScanAsync(string folder, CancellationToken cancellationToken);
     Task<IReadOnlyList<ProcessingRow>> RefreshAsync(CancellationToken cancellationToken);
     Task<QueueStats> StatsAsync(CancellationToken cancellationToken);
+
+    /// <summary>Per-worker state, counts, and last recoverable error, ordered by worker name.</summary>
+    IReadOnlyList<WorkerStatus> WorkerStates();
+
+    void PauseWorkers();
+
+    void ResumeWorkers();
 }
 
 public interface IWorkFileAccess

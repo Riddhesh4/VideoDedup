@@ -7,6 +7,9 @@ public sealed class VisualFingerprintWorker(IJobQueue queue, IMediaProcessingRep
     IMediaProbe probe, IVisualFingerprinter fingerprinter, FrameSamplingPolicy? sampling = null) : MediaWorker(queue, JobType.VisualFingerprint)
 {
     private readonly FrameSamplingPolicy _sampling = sampling ?? new();
+
+    public override string Name => "Visual";
+
     protected override async Task ProcessAsync(MediaWorkItem item, CancellationToken cancellationToken)
     {
         var previous = await visuals.GetAsync(item.FileId, cancellationToken).ConfigureAwait(false);

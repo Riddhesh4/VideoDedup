@@ -1,41 +1,71 @@
 using System.Windows;
 using System.Windows.Threading;
-using VideoDedup.Application;
+using VideoDedup.Desktop.ViewModels;
+
 namespace VideoDedup.Desktop;
 
 public partial class MainWindow : Window
 {
-    private readonly IProcessingDashboard _dashboard;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
-    private CancellationTokenSource _scan = new();
     private bool _refreshing;
-    public MainWindow(IProcessingDashboard dashboard)
+
+    public MainWindow(ProcessingViewModel processing, ReviewViewModel review)
     {
-        InitializeComponent(); _dashboard = dashboard;
-        _timer.Tick += Refresh_Click; Loaded += Refresh_Click;
-        Closed += (_, _) => { _timer.Stop(); _scan.Cancel(); };
+        InitializeComponent();
+        Processing = processing;
+        Review = review;
+        DataContext = this;
+        _timer.Tick += (_, _) => Tick();
+        Loaded += OnLoaded;
+        Closed += (_, _) =>
+        {
+            _timer.Stop();
+            Processing.CancelScan();
+        };
         _timer.Start();
     }
-    private async void Scan_Click(object sender, RoutedEventArgs e)
+
+    /// <summary>Bound by XAML as <c>{Binding Processing.*}</c>.</summary>
+    public ProcessingViewModel Processing { get; }
+
+    /// <summary>Bound by XAML as <c>{Binding Review.*}</c>.</summary>
+    public ReviewViewModel Review { get; }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(Folder.Text)) { Status.Text = "Enter a folder path."; return; }
-        Scan.IsEnabled = false; _scan.Dispose(); _scan = new();
-        try { var path = Folder.Text; await Task.Run(() => _dashboard.ScanAsync(path, _scan.Token)); }
-        catch (OperationCanceledException) { Status.Text = "Scan canceled; queued work retained."; }
-        catch (Exception exception) { Status.Text = $"Scan failed ({exception.GetType().Name})."; }
-        finally { Scan.IsEnabled = true; }
-    }
-    private void Cancel_Click(object sender, RoutedEventArgs e) => _scan.Cancel();
-    private async void Refresh_Click(object? sender, EventArgs e)
-    {
-        if (_refreshing) return; _refreshing = true;
+        // Quarantine recovery runs once at startup so an interrupted move is resolved before review begins.
+        Loaded -= OnLoaded;
         try
         {
-            Results.ItemsSource = await Task.Run(() => _dashboard.RefreshAsync(CancellationToken.None));
-            var stats = await Task.Run(() => _dashboard.StatsAsync(CancellationToken.None));
-            Status.Text = $"Queued: {stats.Queued}  Processing: {stats.Leased}  Completed jobs: {stats.Completed}  Failed jobs: {stats.DeadLetter}";
+            await Review.RecoverThenRefreshAsync(CancellationToken.None);
         }
-        catch (Exception exception) { Status.Text = $"Refresh unavailable ({exception.GetType().Name})."; }
-        finally { _refreshing = false; }
+        catch (Exception exception)
+        {
+            Review.ReportExternalFailure(exception);
+        }
+
+        await Processing.RefreshAsync(CancellationToken.None);
     }
+
+    private void Tick()
+    {
+        if (_refreshing)
+        {
+            return;
+        }
+
+        _refreshing = true;
+        try
+        {
+            Processing.RefreshCommand.Execute(null);
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
+    private void Scan_Click(object sender, RoutedEventArgs e) => Processing.ScanCommand.Execute(null);
+
+    private void Cancel_Click(object sender, RoutedEventArgs e) => Processing.CancelScan();
 }

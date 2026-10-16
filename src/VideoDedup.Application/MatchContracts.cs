@@ -18,13 +18,15 @@ public interface IMatchEvidenceSource
 public sealed record MatchPersistenceRecord
 {
     private MatchPersistenceRecord(Guid fileIdA, Guid fileIdB, MatchType matchType, decimal overallScore,
-        decimal? audioOffsetSeconds, FingerprintVersion policyVersion,
+        decimal? visualScore, decimal? audioScore, decimal? audioOffsetSeconds, FingerprintVersion policyVersion,
         EvidenceVersions evidenceVersions, string[] reasons)
     {
         FileIdA = fileIdA;
         FileIdB = fileIdB;
         MatchType = matchType;
         OverallScore = overallScore;
+        VisualScore = visualScore;
+        AudioScore = audioScore;
         AudioOffsetSeconds = audioOffsetSeconds;
         PolicyVersion = policyVersion;
         EvidenceVersions = evidenceVersions;
@@ -36,6 +38,13 @@ public sealed record MatchPersistenceRecord
     public Guid FileIdB { get; }
     public MatchType MatchType { get; }
     public decimal OverallScore { get; }
+
+    /// <summary>Component visual similarity the decision was based on, when visual evidence existed.</summary>
+    public decimal? VisualScore { get; }
+
+    /// <summary>Component audio similarity the decision was based on, when audio evidence existed.</summary>
+    public decimal? AudioScore { get; }
+
     public decimal? AudioOffsetSeconds { get; }
     public FingerprintVersion PolicyVersion { get; }
     public EvidenceVersions EvidenceVersions { get; }
@@ -47,7 +56,7 @@ public sealed record MatchPersistenceRecord
     /// <summary>Creates an immutable canonical record. Pair order is normalized so (A,B) and (B,A) are one row.</summary>
     public static MatchPersistenceRecord Create(Guid fileIdA, Guid fileIdB, MatchType matchType, decimal overallScore,
         EvidenceVersions evidenceVersions, FingerprintVersion policyVersion, string[] reasons,
-        decimal? audioOffsetSeconds = null)
+        decimal? audioOffsetSeconds = null, decimal? visualScore = null, decimal? audioScore = null)
     {
         if (fileIdA == Guid.Empty || fileIdB == Guid.Empty || fileIdA == fileIdB)
             throw new ArgumentException("Match record requires two distinct non-empty file IDs.");
@@ -63,9 +72,13 @@ public sealed record MatchPersistenceRecord
             throw new ArgumentOutOfRangeException(nameof(policyVersion));
         if (audioOffsetSeconds is < 0m)
             throw new ArgumentOutOfRangeException(nameof(audioOffsetSeconds));
+        if (visualScore is < 0m or > 1m)
+            throw new ArgumentOutOfRangeException(nameof(visualScore));
+        if (audioScore is < 0m or > 1m)
+            throw new ArgumentOutOfRangeException(nameof(audioScore));
 
         return new MatchPersistenceRecord(fileIdA, fileIdB, matchType, overallScore,
-            audioOffsetSeconds, policyVersion, evidenceVersions,
+            visualScore, audioScore, audioOffsetSeconds, policyVersion, evidenceVersions,
             NormalizeReasons(reasons));
     }
 

@@ -6,30 +6,61 @@ using VideoDedup.Domain;
 
 namespace VideoDedup.Workers;
 
-public sealed class ProcessingService(MediaWorker worker, ILogger<ProcessingService> logger) : BackgroundService
+/// <summary>
+/// Hosts one worker loop. Pausing stops new claims immediately; a job already leased finishes or is recovered by
+/// lease expiry, so pausing never abandons half-processed work. Failures are reported as sanitized type/kind text
+/// so a message can never leak a full local path into logs or the dashboard.
+/// </summary>
+public sealed class ProcessingService(MediaWorker worker, IWorkerControl control, ILogger<ProcessingService> logger) : BackgroundService
 {
+    private static readonly TimeSpan IdleDelay = TimeSpan.FromMilliseconds(500);
+
+    private static readonly TimeSpan PauseDelay = TimeSpan.FromMilliseconds(250);
+
+    private static readonly TimeSpan FailureDelay = TimeSpan.FromSeconds(1);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                if (!await Task.Run(() => worker.RunOnceAsync(stoppingToken), stoppingToken).ConfigureAwait(false))
-                    await Task.Delay(500, stoppingToken).ConfigureAwait(false);
+                if (control.IsPaused)
+                {
+                    await Task.Delay(PauseDelay, stoppingToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                control.ReportRunning(worker.Name);
+                var processed = await Task.Run(() => worker.RunOnceAsync(stoppingToken), stoppingToken).ConfigureAwait(false);
+                control.ReportIdle(worker.Name, processed);
+                if (!processed)
+                {
+                    await Task.Delay(IdleDelay, stoppingToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception)
             {
-                logger.LogWarning("Processing iteration failed ({ErrorType}); lease recovery retains unfinished work.", exception.GetType().Name);
-                await Task.Delay(1000, stoppingToken).ConfigureAwait(false);
+                var error = Describe(exception);
+                control.ReportFailure(worker.Name, error);
+                logger.LogWarning("Processing iteration failed ({ErrorType}); lease recovery retains unfinished work.", error);
+                await Task.Delay(FailureDelay, stoppingToken).ConfigureAwait(false);
             }
         }
+
+        control.ReportStopped(worker.Name);
     }
+
+    private static string Describe(Exception exception) => exception is MediaProcessingException media
+        ? $"{media.GetType().Name}: {media.Failure}"
+        : exception.GetType().Name;
 }
 
 public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestrator scanner,
     IDiscoveryRepository discovery, IMediaProcessingRepository results, IJobQueue queue, IWorkFileAccess access,
-    IVisualProcessingRepository? visuals = null, FrameSamplingPolicy? sampling = null, IAudioProcessingRepository? audios = null) : IProcessingDashboard
+    IVisualProcessingRepository? visuals = null, FrameSamplingPolicy? sampling = null, IAudioProcessingRepository? audios = null,
+    IWorkerControl? control = null) : IProcessingDashboard
 {
     public async Task ScanAsync(string folder, CancellationToken cancellationToken)
     {
@@ -90,4 +121,10 @@ public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestr
         return rows;
     }
     public Task<QueueStats> StatsAsync(CancellationToken cancellationToken) => queue.GetStatsAsync(cancellationToken);
+
+    public IReadOnlyList<WorkerStatus> WorkerStates() => control?.Snapshot() ?? Array.Empty<WorkerStatus>();
+
+    public void PauseWorkers() => control?.Pause();
+
+    public void ResumeWorkers() => control?.Resume();
 }

@@ -269,11 +269,12 @@ public sealed class MediaProcessingTests : IDisposable
         // Probe + Hash + VisualFingerprint enqueue only (no audio store), plus one deferred Match job
         // that the match worker skips while fingerprints are still outstanding.
         (await queue.GetStatsAsync(TestContext.Current.CancellationToken)).Queued.Should().Be(4);
-        using var probe = new ProcessingService(new ProbeWorker(queue, repository, new FfprobeMediaProbe(Runner(), Probe, new DecoderInventory(Runner(), Probe))), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
-        using var hash = new ProcessingService(new HashWorker(queue, repository, new Sha256ContentHasher()), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
+        var control = new WorkerStatusRegistry(["Probe", "Hash", "Visual"]);
+        using var probe = new ProcessingService(new ProbeWorker(queue, repository, new FfprobeMediaProbe(Runner(), Probe, new DecoderInventory(Runner(), Probe))), control, Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
+        using var hash = new ProcessingService(new HashWorker(queue, repository, new Sha256ContentHasher()), control, Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
         var mediaProbe = new FfprobeMediaProbe(Runner(), Probe);
         using var visual = new ProcessingService(new VisualFingerprintWorker(queue, repository, visuals, mediaProbe,
-            new FfmpegVisualFingerprinter(Runner(), Ffmpeg)), Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
+            new FfmpegVisualFingerprinter(Runner(), Ffmpeg)), control, Microsoft.Extensions.Logging.Abstractions.NullLogger<ProcessingService>.Instance);
         await probe.StartAsync(TestContext.Current.CancellationToken); await hash.StartAsync(TestContext.Current.CancellationToken);
         await visual.StartAsync(TestContext.Current.CancellationToken);
         try

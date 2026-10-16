@@ -45,7 +45,8 @@ public sealed class MatchOrchestrator(IMatchEvidenceSource evidenceSource, IMatc
                 var pair = MatchPairExtensions.CanonicalPair(decision.FileIdA, decision.FileIdB);
                 var row = MatchPersistenceRecord.Create(pair.FileIdA, pair.FileIdB, decision.MatchType,
                     decision.OverallScore, decision.EvidenceVersions, decision.PolicyVersion,
-                    decision.Reasons.ToArray(), decision.AudioOffsetSeconds);
+                    decision.Reasons.ToArray(), decision.AudioOffsetSeconds,
+                    decision.VisualSimilarityComponent, decision.AudioSimilarityComponent);
                 await repository.SaveAsync(row, cancellationToken).ConfigureAwait(false);
                 results.Add(row);
             }

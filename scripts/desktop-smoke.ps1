@@ -29,7 +29,8 @@ try {
     if ($null -eq $folder) { throw 'Folder input inaccessible' }
     $pattern = $folder.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
     $pattern.SetValue($inputDir)
-    $scan = Find-Name 'Scan and process'
+    $scan = Find-Name 'Scan and process folder'
+    if ($null -eq $scan) { throw 'Scan button is not exposed to UI Automation' }
     $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     $deadline = (Get-Date).AddSeconds(40)
     $complete = $false
@@ -38,7 +39,25 @@ try {
         if ($null -ne (Find-Name 'Complete')) { $complete = $true; break }
     }
     if (-not $complete) { throw 'UI did not display completed processing' }
-    Write-Host 'WPF UI smoke passed: folder entered, scan invoked, completed result displayed.'
+    Write-Host 'WPF UI smoke: folder entered, scan invoked, completed result displayed.'
+
+    # Review tab accessibility: every review control must be reachable by name from UI Automation,
+    # which is also what a screen reader uses.
+    $reviewTab = Find-Name 'Review section'
+    if ($null -eq $reviewTab) { throw 'Review tab is not exposed to UI Automation' }
+    $reviewTab.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Seconds 1
+    foreach ($name in @('Refresh review groups', 'Keep selected copy', 'Reject selected copy',
+            'Mark selected copy for review', 'Quarantine group files', 'Undo last quarantine',
+            'Undecided groups only', 'Duplicate groups', 'Copies in the selected group',
+            'Load aligned previews', 'Quarantine history', 'Preview position in seconds')) {
+        if ($null -eq (Find-Name $name)) { throw "Review control '$name' is missing from UI Automation" }
+    }
+    $quarantineButton = Find-Name 'Quarantine group files'
+    if ($quarantineButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Current.IsEnabled) {
+        throw 'Quarantine must stay disabled until an actionable group is selected'
+    }
+    Write-Host 'WPF UI smoke passed: processing completed and the accessible review controls are reachable.'
     $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
     if (-not $process.WaitForExit(20000)) { throw 'Desktop did not shut down cleanly' }
     if ($process.ExitCode -ne 0) { throw "Desktop exit code $($process.ExitCode)" }

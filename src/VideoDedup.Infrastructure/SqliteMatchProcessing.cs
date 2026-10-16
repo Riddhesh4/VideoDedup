@@ -40,6 +40,8 @@ public sealed class SqliteMatchResultRepository(string databasePath) : IMatchRes
                                 FileIdB TEXT NOT NULL,
                                 MatchType INTEGER NOT NULL,
                                 Score TEXT NOT NULL,
+                                VisualScore TEXT NULL,
+                                AudioScore TEXT NULL,
                                 AudioOffsetSeconds TEXT NULL,
                                 PolicyMajor INTEGER NOT NULL,
                                 PolicyMinor INTEGER NOT NULL,
@@ -54,6 +56,20 @@ public sealed class SqliteMatchResultRepository(string databasePath) : IMatchRes
                             """;
                         await schema.ExecuteNonQueryAsync(token).ConfigureAwait(false);
                         transaction.Commit();
+                        // Component scores arrived with the review UI; older databases gain the columns in place.
+                        foreach (var column in new[] { "VisualScore", "AudioScore" })
+                        {
+                            using var check = connection.CreateCommand();
+                            check.Transaction = null;
+                            check.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('match_results') WHERE name='{column}';";
+                            if (Convert.ToInt32(await check.ExecuteScalarAsync(token).ConfigureAwait(false)) == 0)
+                            {
+                                using var migrate = connection.CreateCommand();
+                                migrate.CommandText = $"ALTER TABLE match_results ADD COLUMN {column} TEXT NULL;";
+                                await migrate.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                            }
+                        }
+
                         _initialized = true;
                     }
                 }
@@ -76,10 +92,11 @@ public sealed class SqliteMatchResultRepository(string databasePath) : IMatchRes
         using var transaction = connection.BeginTransaction(deferred: false);
         using var command = connection.CreateCommand(); command.Transaction = transaction;
         command.CommandText = """
-            INSERT INTO match_results (FileIdA, FileIdB, MatchType, Score, AudioOffsetSeconds, PolicyMajor, PolicyMinor,
-                VisualMajor, VisualMinor, AudioMajor, AudioMinor, Reasons, RecordedUtc)
-            VALUES (@a,@b,@type,@score,@offset,@pm,@pn,@vm,@vn,@am,@an,@reasons,@recorded)
+            INSERT INTO match_results (FileIdA, FileIdB, MatchType, Score, VisualScore, AudioScore, AudioOffsetSeconds,
+                PolicyMajor, PolicyMinor, VisualMajor, VisualMinor, AudioMajor, AudioMinor, Reasons, RecordedUtc)
+            VALUES (@a,@b,@type,@score,@visual,@audio,@offset,@pm,@pn,@vm,@vn,@am,@an,@reasons,@recorded)
             ON CONFLICT(FileIdA, FileIdB) DO UPDATE SET MatchType=excluded.MatchType, Score=excluded.Score,
+                VisualScore=excluded.VisualScore, AudioScore=excluded.AudioScore,
                 AudioOffsetSeconds=excluded.AudioOffsetSeconds, PolicyMajor=excluded.PolicyMajor, PolicyMinor=excluded.PolicyMinor,
                 VisualMajor=excluded.VisualMajor, VisualMinor=excluded.VisualMinor, AudioMajor=excluded.AudioMajor,
                 AudioMinor=excluded.AudioMinor, Reasons=excluded.Reasons, RecordedUtc=excluded.RecordedUtc;
@@ -88,6 +105,8 @@ public sealed class SqliteMatchResultRepository(string databasePath) : IMatchRes
         command.Parameters.AddWithValue("@b", fileIdB);
         command.Parameters.AddWithValue("@type", (int)record.MatchType);
         command.Parameters.AddWithValue("@score", FormatDecimal(record.OverallScore));
+        command.Parameters.AddWithValue("@visual", record.VisualScore is null ? DBNull.Value : FormatDecimal(record.VisualScore.Value));
+        command.Parameters.AddWithValue("@audio", record.AudioScore is null ? DBNull.Value : FormatDecimal(record.AudioScore.Value));
         command.Parameters.AddWithValue("@offset", record.AudioOffsetSeconds is null ? DBNull.Value : FormatDecimal(record.AudioOffsetSeconds.Value));
         command.Parameters.AddWithValue("@pm", record.PolicyVersion.Major);
         command.Parameters.AddWithValue("@pn", record.PolicyVersion.Minor);
@@ -113,7 +132,7 @@ public sealed class SqliteMatchResultRepository(string databasePath) : IMatchRes
         await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT FileIdA,FileIdB,MatchType,Score,AudioOffsetSeconds,PolicyMajor,PolicyMinor,VisualMajor,VisualMinor,AudioMajor,AudioMinor,Reasons FROM match_results ORDER BY FileIdA,FileIdB;";
+            "SELECT FileIdA,FileIdB,MatchType,Score,VisualScore,AudioScore,AudioOffsetSeconds,PolicyMajor,PolicyMinor,VisualMajor,VisualMinor,AudioMajor,AudioMinor,Reasons FROM match_results ORDER BY FileIdA,FileIdB;";
         using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         var rows = new List<MatchPersistenceRecord>();
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -126,14 +145,17 @@ public sealed class SqliteMatchResultRepository(string databasePath) : IMatchRes
                     throw new InvalidDataException();
                 var matchType = (MatchType)reader.GetInt32(2);
                 var score = decimal.Parse(reader.GetString(3), CultureInfo.InvariantCulture);
-                decimal? offset = reader.IsDBNull(4) ? null : decimal.Parse(reader.GetString(4), CultureInfo.InvariantCulture);
-                var policyVersion = FingerprintVersion.Create(reader.GetInt32(5), reader.GetInt32(6));
-                FingerprintVersion? visualVersion = reader.IsDBNull(7) ? null : FingerprintVersion.Create(reader.GetInt32(7), reader.GetInt32(8));
-                FingerprintVersion? audioVersion = reader.IsDBNull(9) ? null : FingerprintVersion.Create(reader.GetInt32(9), reader.GetInt32(10));
-                var reasons = JsonSerializer.Deserialize<string[]>(reader.GetString(11));
+                decimal? visualScore = reader.IsDBNull(4) ? null : decimal.Parse(reader.GetString(4), CultureInfo.InvariantCulture);
+                decimal? audioScore = reader.IsDBNull(5) ? null : decimal.Parse(reader.GetString(5), CultureInfo.InvariantCulture);
+                decimal? offset = reader.IsDBNull(6) ? null : decimal.Parse(reader.GetString(6), CultureInfo.InvariantCulture);
+                var policyVersion = FingerprintVersion.Create(reader.GetInt32(7), reader.GetInt32(8));
+                FingerprintVersion? visualVersion = reader.IsDBNull(9) ? null : FingerprintVersion.Create(reader.GetInt32(9), reader.GetInt32(10));
+                FingerprintVersion? audioVersion = reader.IsDBNull(11) ? null : FingerprintVersion.Create(reader.GetInt32(11), reader.GetInt32(12));
+                var reasons = JsonSerializer.Deserialize<string[]>(reader.GetString(13));
                 if (reasons is null || reasons.Length == 0) throw new InvalidDataException();
                 rows.Add(MatchPersistenceRecord.Create(fileIdA, fileIdB, matchType, score,
-                    new EvidenceVersions(visualVersion, audioVersion), policyVersion, reasons, offset));
+                    new EvidenceVersions(visualVersion, audioVersion), policyVersion, reasons, offset,
+                    visualScore, audioScore));
             }
             catch (Exception exception) when (exception is InvalidDataException or FormatException or OverflowException
                 or ArgumentException or JsonException)
@@ -164,6 +186,8 @@ public sealed class SqliteMatchResultRepository(string databasePath) : IMatchRes
         var problems = new List<string>();
         if (record.FileIdA == Guid.Empty || record.FileIdB == Guid.Empty) problems.Add("pair");
         if (record.OverallScore is < 0m or > 1m) problems.Add("score");
+        if (record.VisualScore is < 0m or > 1m) problems.Add("visualScore");
+        if (record.AudioScore is < 0m or > 1m) problems.Add("audioScore");
         if (record.Reasons.Count == 0) problems.Add("reasons");
         return problems;
     }

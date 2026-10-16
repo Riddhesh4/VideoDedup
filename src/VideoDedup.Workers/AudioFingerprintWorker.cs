@@ -6,6 +6,8 @@ namespace VideoDedup.Workers;
 public sealed class AudioFingerprintWorker(IJobQueue queue, IAudioProcessingRepository repository,
     IMediaProcessingRepository media, IMediaProbe probe, IAudioFingerprinter fingerprinter) : MediaWorker(queue, JobType.AudioFingerprint)
 {
+    public override string Name => "Audio";
+
     protected override async Task ProcessAsync(MediaWorkItem item, CancellationToken cancellationToken)
     {
         var previous = await repository.GetAsync(item.FileId, cancellationToken).ConfigureAwait(false);

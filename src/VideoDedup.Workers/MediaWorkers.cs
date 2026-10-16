@@ -7,6 +7,10 @@ namespace VideoDedup.Workers;
 public abstract class MediaWorker(IJobQueue queue, JobType jobType)
 {
     private readonly string _owner = $"{jobType}-{Guid.NewGuid():N}";
+
+    /// <summary>Stable display name used by pause/resume and the per-worker dashboard.</summary>
+    public abstract string Name { get; }
+
     protected abstract Task ProcessAsync(MediaWorkItem item, CancellationToken cancellationToken);
     protected abstract Task SaveFailureAsync(MediaWorkItem item, MediaFailure failure, CancellationToken cancellationToken);
 
@@ -45,6 +49,8 @@ public abstract class MediaWorker(IJobQueue queue, JobType jobType)
 public sealed class ProbeWorker(IJobQueue queue, IMediaProcessingRepository repository, IMediaProbe probe)
     : MediaWorker(queue, JobType.Probe)
 {
+    public override string Name => "Probe";
+
     protected override async Task ProcessAsync(MediaWorkItem item, CancellationToken cancellationToken)
     {
         var result = await probe.ProbeAsync(item.Path, item.Revision, cancellationToken).ConfigureAwait(false);
@@ -57,6 +63,8 @@ public sealed class ProbeWorker(IJobQueue queue, IMediaProcessingRepository repo
 public sealed class HashWorker(IJobQueue queue, IMediaProcessingRepository repository, IContentHasher hasher)
     : MediaWorker(queue, JobType.Hash)
 {
+    public override string Name => "Hash";
+
     protected override async Task ProcessAsync(MediaWorkItem item, CancellationToken cancellationToken)
     {
         var result = await hasher.HashAsync(item.Path, item.Revision, cancellationToken).ConfigureAwait(false);

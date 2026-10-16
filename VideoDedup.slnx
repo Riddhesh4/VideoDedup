@@ -11,6 +11,7 @@
     <Project Path="tests/VideoDedup.Application.Tests/VideoDedup.Application.Tests.csproj" />
     <Project Path="tests/VideoDedup.Architecture.Tests/VideoDedup.Architecture.Tests.csproj" />
     <Project Path="tests/VideoDedup.Bdd.Tests/VideoDedup.Bdd.Tests.csproj" />
+    <Project Path="tests/VideoDedup.Desktop.Tests/VideoDedup.Desktop.Tests.csproj" />
     <Project Path="tests/VideoDedup.Domain.Tests/VideoDedup.Domain.Tests.csproj" />
     <Project Path="tests/VideoDedup.Infrastructure.Tests/VideoDedup.Infrastructure.Tests.csproj" />
     <Project Path="tests/VideoDedup.Workers.Tests/VideoDedup.Workers.Tests.csproj" />

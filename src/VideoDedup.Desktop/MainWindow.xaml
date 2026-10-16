@@ -1,20 +1,174 @@
 <Window x:Class="VideoDedup.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="VideoDedup — Processing" Height="540" Width="1000" MinWidth="650">
-    <DockPanel Margin="20">
+        xmlns:local="clr-namespace:VideoDedup.Desktop"
+        Title="VideoDedup — Processing and review" Height="760" Width="1240" MinWidth="760" MinHeight="560">
+    <Window.Resources>
+        <local:ByteArrayToImageConverter x:Key="PreviewImage" />
+    </Window.Resources>
+    <DockPanel Margin="16">
         <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="VideoDedup" FontSize="26" FontWeight="Bold" />
-            <TextBlock Text="Local-only metadata, exact SHA-256, visual and audio fingerprint processing. Source files are never modified." Margin="0,8,0,16" />
-            <TextBlock Text="Folder path" />
-            <TextBox x:Name="Folder" AutomationProperties.Name="Folder path" Margin="0,4,0,10" />
-            <StackPanel Orientation="Horizontal">
-                <Button x:Name="Scan" Content="Scan and process" Click="Scan_Click" Padding="14,6" />
-                <Button Content="Cancel scan" Click="Cancel_Click" Margin="10,0" Padding="14,6" />
-                <Button Content="Refresh" Click="Refresh_Click" Padding="14,6" />
-            </StackPanel>
-            <TextBlock x:Name="Status" Text="Ready" Margin="0,12" TextWrapping="Wrap" />
+            <TextBlock Margin="0,4,0,12" TextWrapping="Wrap"
+                       Text="Local-only duplicate scanning. Source files are never modified; quarantining is reversible and permanent deletion is not available in this build." />
         </StackPanel>
-        <DataGrid x:Name="Results" IsReadOnly="True" AutoGenerateColumns="True" AutomationProperties.Name="Processing results" />
+        <TabControl x:Name="Tabs" AutomationProperties.Name="VideoDedup sections">
+            <TabItem Header="_Processing" AutomationProperties.Name="Processing section">
+                <DockPanel Margin="8">
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="Folder path" />
+                        <TextBox x:Name="Folder" AutomationProperties.Name="Folder path" Margin="0,4,0,10"
+                                 Text="{Binding Processing.Folder, UpdateSourceTrigger=PropertyChanged}" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="Scan" Content="_Scan and process" Click="Scan_Click" Padding="14,6"
+                                    AutomationProperties.Name="Scan and process folder" IsDefault="True" />
+                            <Button Content="_Cancel scan" Click="Cancel_Click" Margin="10,0" Padding="14,6"
+                                    AutomationProperties.Name="Cancel scan" />
+                            <Button Content="_Pause workers" Command="{Binding Processing.PauseCommand}" Margin="10,0" Padding="14,6"
+                                    AutomationProperties.Name="Pause workers" />
+                            <Button Content="Res_ume workers" Command="{Binding Processing.ResumeCommand}" Margin="10,0" Padding="14,6"
+                                    AutomationProperties.Name="Resume workers" />
+                            <Button Content="Re_fresh" Command="{Binding Processing.RefreshCommand}" Padding="14,6"
+                                    AutomationProperties.Name="Refresh processing" />
+                        </StackPanel>
+                        <TextBlock x:Name="Status" Text="{Binding Processing.StatusMessage}" Margin="0,12,0,4" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Processing status" />
+                        <TextBlock Text="{Binding Processing.ErrorMessage}" Foreground="#B00020" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Processing error" />
+                        <TextBlock Text="Workers" FontWeight="Bold" Margin="0,8,0,4" />
+                        <DataGrid x:Name="Workers" ItemsSource="{Binding Processing.Workers}" IsReadOnly="True"
+                                  AutoGenerateColumns="False" MaxHeight="120" AutomationProperties.Name="Worker states">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Worker" Binding="{Binding Name}" Width="120" />
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="100" />
+                                <DataGridTextColumn Header="Completed" Binding="{Binding CompletedCount}" Width="90" />
+                                <DataGridTextColumn Header="Failed" Binding="{Binding FailedCount}" Width="70" />
+                                <DataGridTextColumn Header="Last error" Binding="{Binding LastError}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="Indexed files" FontWeight="Bold" Margin="0,12,0,4" />
+                    </StackPanel>
+                    <DataGrid x:Name="Results" ItemsSource="{Binding Processing.Rows}" IsReadOnly="True"
+                              AutoGenerateColumns="True" AutomationProperties.Name="Processing results" />
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="_Review" AutomationProperties.Name="Review section">
+                <DockPanel Margin="8">
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock TextWrapping="Wrap"
+                                   Text="Duplicate groups with explainable evidence. Keep/Reject/NeedsReview decisions, aligned previews, and reversible quarantine." />
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="RefreshReviews" Content="_Refresh groups" Command="{Binding Review.RefreshCommand}"
+                                    Padding="14,6" AutomationProperties.Name="Refresh review groups" />
+                            <CheckBox Content="Undecided _only" IsChecked="{Binding Review.ShowOnlyUndecided}" Margin="14,0,0,0"
+                                      VerticalAlignment="Center" AutomationProperties.Name="Undecided groups only" />
+                            <Button Content="_Keep" Command="{Binding Review.KeepCommand}" Margin="14,0,0,0" Padding="14,6"
+                                    AutomationProperties.Name="Keep selected copy" />
+                            <Button Content="Re_ject" Command="{Binding Review.RejectCommand}" Margin="10,0,0,0" Padding="14,6"
+                                    AutomationProperties.Name="Reject selected copy" />
+                            <Button Content="Needs re_view" Command="{Binding Review.NeedsReviewCommand}" Margin="10,0,0,0" Padding="14,6"
+                                    AutomationProperties.Name="Mark selected copy for review" />
+                            <Button x:Name="Quarantine" Content="_Quarantine..." Command="{Binding Review.QuarantineCommand}"
+                                    Margin="10,0,0,0" Padding="14,6" AutomationProperties.Name="Quarantine group files" />
+                            <Button Content="_Undo last" Command="{Binding Review.UndoLastCommand}" Margin="10,0,0,0" Padding="14,6"
+                                    AutomationProperties.Name="Undo last quarantine" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Review.StatusMessage}" Margin="0,10,0,4" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Review status" />
+                        <TextBlock Text="{Binding Review.ErrorMessage}" Foreground="#B00020" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Review error" />
+                    </StackPanel>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="320" MinWidth="240" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ListBox x:Name="Groups" Grid.Column="0" ItemsSource="{Binding Review.Groups}"
+                                 SelectedItem="{Binding Review.SelectedGroup}" AutomationProperties.Name="Duplicate groups"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="2,4">
+                                        <TextBlock Text="{Binding MatchTypeText}" FontWeight="Bold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding OverallScore, StringFormat=Score {0:P0}}" />
+                                        <TextBlock Text="{Binding Files.Count, StringFormat={}{0} copies}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <ScrollViewer Grid.Column="1" Margin="12,0,0,0" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="Why this group matches" FontWeight="Bold" TextWrapping="Wrap" />
+                                <ItemsControl ItemsSource="{Binding Review.SelectedGroup.Reasons}" Margin="0,4,0,8"
+                                              AutomationProperties.Name="Match explanation">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{Binding Review.SelectedFileSummary}" Margin="0,0,0,8" TextWrapping="Wrap"
+                                           AutomationProperties.Name="Selected copy" />
+                                <DataGrid x:Name="Copies" ItemsSource="{Binding Review.SelectedGroup.Files}"
+                                          SelectedItem="{Binding Review.SelectedFile}" IsReadOnly="True" AutoGenerateColumns="False"
+                                          MaxHeight="200" AutomationProperties.Name="Copies in the selected group">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Copy" Binding="{Binding FullPath}" Width="*" />
+                                        <DataGridTextColumn Header="Decision" Binding="{Binding DecisionText}" Width="110" />
+                                        <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="90" />
+                                        <DataGridTextColumn Header="Resolution" Width="110">
+                                            <DataGridTextColumn.Binding>
+                                                <MultiBinding StringFormat="{}{0}x{1}">
+                                                    <Binding Path="Width" />
+                                                    <Binding Path="Height" />
+                                                </MultiBinding>
+                                            </DataGridTextColumn.Binding>
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="Size" Binding="{Binding SizeBytes}" Width="110" />
+                                        <DataGridCheckBoxColumn Header="Present" Binding="{Binding FilePresent}" Width="70" />
+                                        <DataGridCheckBoxColumn Header="Quarantined" Binding="{Binding IsQuarantined}" Width="90" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock Text="Aligned previews" FontWeight="Bold" Margin="0,12,0,4" />
+                                <TextBlock Text="{Binding Review.PreviewHint}" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,6">
+                                    <Button x:Name="LoadPreview" Content="_Load aligned previews" Command="{Binding Review.PreviewCommand}"
+                                            Padding="14,6" AutomationProperties.Name="Load aligned previews" />
+                                    <Slider Minimum="0" Maximum="{Binding Review.PreviewMaximumSeconds}" Width="240" Margin="14,0,0,0"
+                                            Value="{Binding Review.PreviewPositionSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                            VerticalAlignment="Center" AutomationProperties.Name="Preview position in seconds" />
+                                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                        <TextBlock Text="{Binding Review.LeftPreviewLabel}" TextWrapping="Wrap" />
+                                        <Image Source="{Binding Review.LeftPreviewBytes, Converter={StaticResource PreviewImage}}"
+                                               Height="180" Stretch="Uniform" AutomationProperties.Name="First copy preview" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                        <TextBlock Text="{Binding Review.RightPreviewLabel}" TextWrapping="Wrap" />
+                                        <Image Source="{Binding Review.RightPreviewBytes, Converter={StaticResource PreviewImage}}"
+                                               Height="180" Stretch="Uniform" AutomationProperties.Name="Second copy preview" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="Quarantine history (undo restores the original path)" FontWeight="Bold" Margin="0,14,0,4" />
+                                <DataGrid x:Name="History" ItemsSource="{Binding Review.History}" IsReadOnly="True"
+                                          AutoGenerateColumns="False" MaxHeight="160" AutomationProperties.Name="Quarantine history">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="State" Binding="{Binding State}" Width="110" />
+                                        <DataGridTextColumn Header="Original path" Binding="{Binding SourcePath}" Width="*" />
+                                        <DataGridTextColumn Header="Quarantined at" Binding="{Binding DestinationPath}" Width="*" />
+                                        <DataGridTextColumn Header="Reason" Binding="{Binding FailureReason}" Width="160" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </Window>

@@ -9,6 +9,8 @@ namespace VideoDedup.Workers;
 /// </summary>
 public sealed class MatchWorker(IJobQueue queue, IMatchOrchestrator orchestrator) : MediaWorker(queue, JobType.Match)
 {
+    public override string Name => "Match";
+
     protected override async Task ProcessAsync(MediaWorkItem item, CancellationToken cancellationToken)
     {
         await orchestrator.MatchFileAsync(item.FileId, cancellationToken).ConfigureAwait(false);
