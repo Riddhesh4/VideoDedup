@@ -18,3 +18,9 @@ Scenario: Re-encoded visuals are candidates only with a usable multi-frame seque
     When visual candidate evidence is evaluated
     Then the versions are only a near-match candidate and one frame is insufficient
     And unrelated visual fingerprints do not become a candidate
+
+Scenario: A video without audio remains complete for visual matching
+    Given a video file has no audio stream
+    When audio processing completes
+    Then audio is recorded as not present without a worker failure
+    And visual candidate processing remains enabled

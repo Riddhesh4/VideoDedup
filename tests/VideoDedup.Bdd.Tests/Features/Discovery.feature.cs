@@ -106,7 +106,7 @@ namespace VideoDedup.Bdd.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Discovery.feature.ndjson", 5);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Discovery.feature.ndjson", 6);
         }
         
         async System.Threading.Tasks.ValueTask Xunit.IAsyncLifetime.InitializeAsync()
@@ -201,7 +201,7 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
             }
             await this.ScenarioCleanupAsync();
         }
-
+        
         [global::Xunit.FactAttribute(DisplayName="Re-encoded visuals are candidates only with a usable multi-frame sequence")]
         [global::Xunit.TraitAttribute("FeatureTitle", "File discovery")]
         [global::Xunit.TraitAttribute("Description", "Re-encoded visuals are candidates only with a usable multi-frame sequence")]
@@ -234,6 +234,43 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
 #line 20
     await testRunner.AndAsync("unrelated visual fingerprints do not become a candidate", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::Xunit.FactAttribute(DisplayName="A video without audio remains complete for visual matching")]
+        [global::Xunit.TraitAttribute("FeatureTitle", "File discovery")]
+        [global::Xunit.TraitAttribute("Description", "A video without audio remains complete for visual matching")]
+        public async global::System.Threading.Tasks.Task AVideoWithoutAudioRemainsCompleteForVisualMatching()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "3";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A video without audio remains complete for visual matching", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 22
+this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 23
+    await testRunner.GivenAsync("a video file has no audio stream", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 24
+    await testRunner.WhenAsync("audio processing completes", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 25
+    await testRunner.ThenAsync("audio is recorded as not present without a worker failure", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 26
+    await testRunner.AndAsync("visual candidate processing remains enabled", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

@@ -10,7 +10,7 @@ Source prompts: [`PHASE-PROMPTS.md`](PHASE-PROMPTS.md). Project rules: [`ARCHITE
 - [x] Phase 3 — Durable SQLite job queue. Evidence and exit record below.
 - [x] Phase 4 — FFprobe metadata and exact SHA-256 duplicates (locally verified; not committed).
 - [x] Phase 5 — Visual fingerprints (locally verified; uncommitted). See Phase 5 exit evidence below.
-- [ ] Phase 6 — Chromaprint audio fingerprints.
+- [x] Phase 6 — Chromaprint audio fingerprints (locally verified; uncommitted). See Phase 6 exit evidence below.
 - [ ] Phase 7 — Match engine (near/partial/cross-root).
 - [ ] Phase 8 — WPF review UI and safe quarantine/undo actions.
 - [ ] Phase 9 — Resilience, performance, privacy, and release hardening.
@@ -60,6 +60,17 @@ Never mark a phase complete merely because files were generated. Its prompt's De
 - Real FFmpeg integration verifies deterministic/versioned hashes, resized/re-encoded/letterboxed and rotated candidate behavior, unrelated separation, single-frame rejection, black/static filtering, frame/timestamp bounds, VFR/10-bit/short handling, hostile Unicode paths, output caps and software fallback. SQLite tests cover existing database initialization, reopen roundtrip including unsigned hashes, separate visual failure, cancellation, concurrent open/write, transaction rollback, corrupt values and caps. Hosted processing verifies visual persistence, revision/settings-version enqueue and unchanged rescan suppression.
 - Published Release WPF UI Automation smoke passed twice using the same isolated data directory; scan, visual completion status, shutdown and reopen succeeded. Package output is verified to omit the `media` directory and FFmpeg binaries. The Reqnroll-generated feature class is regenerated from the feature source.
 - No packages added; FFmpeg remains user-prepared and excluded from packaging; licensing certification remains separate. Visual evidence creates candidates only; final sequence matching/classification is Phase 7. Decode work has pixel/allocation/output/frame/thread limits, a 2-minute per-video wall-time budget, 10-second per-frame wall-time budget and 8-second Windows Job Object process CPU-time limit, plus a 512 MiB Job Object memory cap. Administrator/kernel attackers remain outside the threat model.
+- No commit, push, or remote CI run.
+
+### Phase 6 local exit evidence
+
+- Final verification after the last code change: Release solution build 0 warnings / 0 errors; full suite 167 passed, 0 failed, 0 skipped (unit, architecture, infrastructure, worker, and Reqnroll BDD); published WPF UI Automation smoke passed; package output verified to omit both `media` and `audio` tool directories (`scripts/package-desktop.ps1` guard).
+- Implemented `IAudioFingerprinter` Application port and `FpcalcAudioFingerprinter`: fixed absolute fpcalc path, `ArgumentList` with `-json -length 0 <path>`, 5-minute deadline, 1 MiB output cap, revision verify before and after the process, nonzero exit typed InvalidData, known no-audio metadata skips the process entirely.
+- `ParseOutput` defensively bounds JSON (1 MiB input, max depth 4, no comments/trailing commas), validates `duration` > 0 within the sampling duration limit, decodes strict base64url (`-`/`_`, legal padding) with a 256 KiB decoded fingerprint cap; malformed/empty/truncated/oversized output yields typed `MediaProcessingException`.
+- `SqliteAudioProcessingRepository` adds an `audio_results` table (WAL database, per-connection foreign keys + busy timeout, single-writer init gate, transactional upsert) with CHECK caps on fingerprint size; records store fingerprint bytes, duration, algorithm, version, no-audio status and failure independently of probe/hash/visual persistence; corrupt stored rows surface typed InvalidData.
+- `AudioFingerprintWorker` persists audio results without overwriting probe/hash/visual records; no-audio files complete normally; only retryable failures re-fail the lease; cancellation leaves the lease for recovery. Launcher composition hosts the audio worker and the dashboard displays per-file audio status (`Pending`/`No audio`/`Fingerprint ready`/failure).
+- Pinned official acoustid Chromaprint v1.6.2 Windows x86_64 fpcalc release; archive inspected (`fpcalc.exe` only), SHA-256 verified at download in `scripts/prepare-media.py` (also `scripts/audio-tool.json` pin), version checked at runtime. Licensing/provenance recorded in `THIRD-PARTY.md`; redistribution compliance remains a separate gate. `tools/` stays ignored; CI runs the same preparation script.
+- Tests: curated-JSON/argument/timeout/cap construction with Unicode paths, no-audio skip, missing tool/nonzero exit/changed-source typing, parse validity + bounds, pinned-tool repeatability on generated PCM, AAC re-encode fingerprint compatibility, embedded-audio video, real no-audio video, persistence roundtrip/defensive identity/no-audio semantics/checks/corrupt typed, worker success/no-audio/failure-isolation/retryability/cancellation. BDD no-audio scenario regenerated from the feature source.
 - No commit, push, or remote CI run.
 
 ### Phase 4 integrated checkpoint follow-up

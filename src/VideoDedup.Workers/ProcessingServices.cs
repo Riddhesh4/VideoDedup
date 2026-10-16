@@ -29,7 +29,7 @@ public sealed class ProcessingService(MediaWorker worker, ILogger<ProcessingServ
 
 public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestrator scanner,
     IDiscoveryRepository discovery, IMediaProcessingRepository results, IJobQueue queue, IWorkFileAccess access,
-    IVisualProcessingRepository? visuals = null, FrameSamplingPolicy? sampling = null) : IProcessingDashboard
+    IVisualProcessingRepository? visuals = null, FrameSamplingPolicy? sampling = null, IAudioProcessingRepository? audios = null) : IProcessingDashboard
 {
     public async Task ScanAsync(string folder, CancellationToken cancellationToken)
     {
@@ -56,6 +56,13 @@ public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestr
                     (visual.Failure is MediaFailure failure && new MediaProcessingException(failure).Retryable))
                     await queue.EnqueueAsync(file.Id, JobType.VisualFingerprint, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
             }
+            if (audios is not null)
+            {
+                var audio = await audios.GetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+                if (audio?.IsCurrent(work.Revision) != true ||
+                    (audio.Failure is MediaFailure failure && new MediaProcessingException(failure).Retryable))
+                    await queue.EnqueueAsync(file.Id, JobType.AudioFingerprint, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -70,9 +77,12 @@ public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestr
                 var visualCurrent = result is not null && visual?.IsCurrent(result.Revision, sampling ?? new()) == true;
                 var visualStatus = visuals is null ? "Not enabled" : !visualCurrent ? "Pending" :
                     visual!.Failure?.ToString() ?? $"{visual.Frames.Count(f => f.Disposition == FrameDisposition.Usable)}/{visual.Frames.Count} usable";
+                var audio = audios is null ? null : await audios.GetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+                var audioCurrent = result is not null && audio?.IsCurrent(result.Revision) == true;
+                var audioStatus = audios is null ? "Not enabled" : !audioCurrent ? "Pending" : audio!.Failure?.ToString() ?? (!audio.HasAudio ? "No audio" : "Fingerprint ready");
                 rows.Add(new ProcessingRow(file.RelativePath, result?.Failure?.ToString() ??
-                    (result?.Metadata is not null && result.Sha256 is not null && (visuals is null || visualCurrent) ? "Complete" : "Pending"),
-                    result?.Sha256, result?.Metadata?.VideoCodec, visualStatus));
+                    (result?.Metadata is not null && result.Sha256 is not null && (visuals is null || visualCurrent) && (audios is null || audioCurrent) ? "Complete" : "Pending"),
+                    result?.Sha256, result?.Metadata?.VideoCodec, visualStatus, audioStatus));
             }
         return rows;
     }

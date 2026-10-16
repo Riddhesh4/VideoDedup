@@ -8,4 +8,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Desktop publish failed' }
 Copy-Item THIRD-PARTY.md publish/desktop/THIRD-PARTY.md -Force
 Copy-Item docs/MEDIA-COMPLIANCE.md publish/desktop/MEDIA-COMPLIANCE.md -Force
 if (Test-Path publish/desktop/media) { throw 'Unexpected bundled media directory; stop packaging for compliance review' }
-Write-Host 'Desktop published without bundled FFmpeg/FFprobe; launch with --tools <prepared-media-directory>.'
+if (Test-Path publish/desktop/audio) { throw 'Unexpected bundled fpcalc directory; stop packaging for compliance review' }
+Write-Host 'Desktop published without bundled media binaries; launch with --tools <prepared-media-directory> --audio-tools <prepared-audio-directory>.'

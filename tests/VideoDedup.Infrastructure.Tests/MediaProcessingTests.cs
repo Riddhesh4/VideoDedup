@@ -43,7 +43,7 @@ public sealed class MediaProcessingTests : IDisposable
         probe.Metadata.VideoCodec.Should().Be("ffv1");
         probe.Metadata.HasAudio.Should().BeTrue();
         probe.Metadata.FrameRate.Should().Be(5);
-        probe.Metadata.DurationSeconds.Should().BeApproximately(1, 0.1);
+        probe.Metadata.DurationSeconds.Should().BeApproximately(8, 0.1);
         var hasher = new Sha256ContentHasher();
         var first = await hasher.HashAsync(path, revision, TestContext.Current.CancellationToken);
         var copy = TempFile("different-container-name.mp4", File.ReadAllBytes(path));

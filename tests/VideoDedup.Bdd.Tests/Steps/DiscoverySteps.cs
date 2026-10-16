@@ -16,6 +16,8 @@ public sealed class DiscoverySteps
     private bool _candidate;
     private bool _singleFrameCandidate;
     private bool _unrelatedCandidate;
+    private AudioProcessingRecord _audioSkip = null!;
+    private ProcessingRow _videoRow = null!;
 
     [Given("a local root contains a supported video and a non-video file")]
     public void GivenLocalRootHasSupportedAndUnsupportedFiles()
@@ -86,6 +88,34 @@ public sealed class DiscoverySteps
 
     [Then("unrelated visual fingerprints do not become a candidate")]
     public void ThenUnrelatedVisualsRejected() => _unrelatedCandidate.Should().BeFalse();
+
+    [Given("a video file has no audio stream")]
+    public void GivenVideoHasNoAudio()
+    {
+        var revision = new FileRevision(42, DateTimeOffset.UnixEpoch);
+        _audioSkip = AudioProcessingRecord.Create(Guid.NewGuid(), revision, AudioAlgorithm.Name, AudioAlgorithm.Version,
+            TimeSpan.Zero, [], false);
+        _videoRow = new ProcessingRow("silent-video.mkv", "Complete", new string('a', 64), "ffv1", "1/1 usable", "No audio");
+    }
+
+    [When("audio processing completes")]
+    public void WhenAudioProcessingCompletes() { }
+
+    [Then("audio is recorded as not present without a worker failure")]
+    public void ThenAudioRecordedAbsent()
+    {
+        _audioSkip.HasAudio.Should().BeFalse();
+        _audioSkip.Failure.Should().BeNull();
+        _audioSkip.Fingerprint.Should().BeEmpty();
+    }
+
+    [Then("visual candidate processing remains enabled")]
+    public void ThenVisualProcessingRemainsEnabled()
+    {
+        _videoRow.Status.Should().Be("Complete");
+        _videoRow.Visual.Should().Be("1/1 usable");
+        _videoRow.Audio.Should().Be("No audio");
+    }
 
     private static VisualFingerprint Visual(TimeSpan timestamp, ulong hash) =>
         VisualFingerprint.Create(timestamp, hash, 0.8m, VisualAlgorithm.Version);

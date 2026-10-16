@@ -7,7 +7,7 @@ the exact source downloaded from, per the Phase 0 licensing gate in PLAN-REVIEW.
 | Component | Version | License | Source | Notes |
 |---|---|---|---|---|
 | FFmpeg + FFprobe | n8.1.3-18-g46d899d7a0 | LGPL-3.0-or-later | Dated BtbN release; see pin below | Runtime -L and configuration audited; CI verifies archive hash before use. |
-| fpcalc / Chromaprint (planned, Phase 6) | 1.6.2 | LGPL-2.1-or-later | acoustid/chromaprint GitHub releases (`chromaprint-fpcalc-1.6.2-windows-x86_64.zip`) | Ship runtime files together; do not extract only the EXE. Auto-fetch via GitHub releases API. |
+| fpcalc / Chromaprint | 1.6.2 | LGPL-2.1-or-later | Official acoustid/chromaprint GitHub release; see pin below | Static Windows x64 fpcalc archive contains only `fpcalc.exe`; CI verifies SHA-256 before extraction. |
 | SQLite (via Microsoft.Data.Sqlite) | 10.0.13 | MIT | nuget.org | Managed provider; SQLite itself is public domain. |
 | .NET 10 SDK / runtime | 10.0.402 | MIT | dotnet.microsoft.com | Build tooling only. |
 | Obfuscar.GlobalTool | 3.0.0-beta.22 | MIT | NuGet (`Obfuscar.GlobalTool`) | Release-build RE deterrent only; do not treat as a security boundary. |
@@ -15,6 +15,14 @@ the exact source downloaded from, per the Phase 0 licensing gate in PLAN-REVIEW.
 | FluentAssertions | 7.2.0 | Apache-2.0 | NuGet; fluentassertions.com | Test-only assertions; pinned to Apache-2.0 release (v8+ has paid commercial-use terms). |
 | dotnet-coverage | 18.12.0 | Microsoft .NET Library License | Local dotnet tool manifest | Development-only local coverage measurement; not included in app distribution. |
 | System.IO.FileSystem.AccessControl | 5.0.0 | MIT | NuGet (dotnet/runtime) | Phase 2 JSON-bridge ACL hardening only; best-effort per-user LocalAppData ACLs. |
+
+## Phase 6 fpcalc pin
+
+Official Chromaprint v1.6.2 Windows x86_64 release asset, published 2026-10-15:
+https://github.com/acoustid/chromaprint/releases/download/v1.6.2/chromaprint-fpcalc-1.6.2-windows-x86_64.zip
+SHA-256 (GitHub asset digest): `b74369726676670af3ab0eadff45f960cf969fdf4a87a971ba37eaf8d530e874`.
+
+The archive was inspected and contains only `chromaprint-fpcalc-1.6.2-windows-x86_64/fpcalc.exe` (4,148,224 bytes). Chromaprint's v1.6.2 LICENSE.md classifies the library as LGPL-2.1-or-later due to FFmpeg components; its binary notices/source obligations require separate distribution review. This pin does not certify redistribution compliance.
 
 ## Rules
 

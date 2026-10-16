@@ -18,8 +18,12 @@ internal static class Program
             if (args[index] == "--data") data = Path.GetFullPath(args[index + 1]);
         Directory.CreateDirectory(data);
         var tools = Path.Combine(AppContext.BaseDirectory, "media");
+        var audioTools = Path.Combine(AppContext.BaseDirectory, "audio");
         for (var index = 0; index + 1 < args.Length; index++)
+        {
             if (args[index] == "--tools") tools = Path.GetFullPath(args[index + 1]);
+            if (args[index] == "--audio-tools") audioTools = Path.GetFullPath(args[index + 1]);
+        }
         var probePath = Path.Combine(tools, "ffprobe.exe");
         var ffmpegPath = Path.Combine(tools, "ffmpeg.exe");
         var runner = new ProcessRunner([probePath, ffmpegPath]);
@@ -33,17 +37,21 @@ internal static class Program
         var visuals = new SqliteVisualProcessingRepository(Path.Combine(data, "videodedup.db"));
         var visual = new VisualFingerprintWorker(queue, results, visuals, new FfprobeMediaProbe(runner, probePath),
             new FfmpegVisualFingerprinter(runner, ffmpegPath));
+        var audios = new SqliteAudioProcessingRepository(Path.Combine(data, "videodedup.db"));
+        var audio = new AudioFingerprintWorker(queue, audios, results, new FfprobeMediaProbe(runner, probePath),
+            new FpcalcAudioFingerprinter(runner, Path.Combine(audioTools, "chromaprint-fpcalc-1.6.2-windows-x86_64", "fpcalc.exe")));
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(probe, s.GetRequiredService<ILogger<ProcessingService>>()));
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(hash, s.GetRequiredService<ILogger<ProcessingService>>()));
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(visual, s.GetRequiredService<ILogger<ProcessingService>>()));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(audio, s.GetRequiredService<ILogger<ProcessingService>>()));
         using var host = builder.Build();
         host.StartAsync().GetAwaiter().GetResult();
         var app = new App();
         try
         {
             app.Run(new MainWindow(new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery),
-                discovery, results, queue, new WorkFileAccess(), visuals)));
+                discovery, results, queue, new WorkFileAccess(), visuals, audios: audios)));
         }
         finally { host.StopAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult(); }
     }
