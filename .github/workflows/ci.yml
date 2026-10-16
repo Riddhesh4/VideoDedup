@@ -37,7 +37,21 @@ jobs:
         run: python scripts/prepare-media.py
 
       - name: Test (all)
-        run: dotnet test VideoDedup.slnx --no-build -c Release -p:TestingPlatformShowTestsFailure=true -p:TestingPlatformCaptureOutput=false
+        shell: pwsh
+        run: |
+          dotnet test VideoDedup.slnx --no-build -c Release -p:TestingPlatformShowTestsFailure=true -p:TestingPlatformCaptureOutput=false 2>&1 |
+            Tee-Object -FilePath tests.log
+          $code = $LASTEXITCODE
+          if ($code -eq 0) { exit 0 }
+          # Workflow logs require a signed-in GitHub account, so mirror the diagnostics into check annotations.
+          $failed = @(Select-String -Path tests.log -Pattern '^\s*(failed|error|Error|Exit code|Unhandled)|Exception(:| )' |
+            ForEach-Object { ($_.Line -replace '\s+', ' ').Trim() } | Select-Object -Unique -First 10)
+          foreach ($line in $failed) {
+            Write-Host ("::error title=Test-failure::" + ($line -replace '%', '%25'))
+          }
+          $tail = ((Get-Content tests.log -Tail 25) -join "`n") -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'
+          Write-Host ("::error title=Test-log-tail::$tail")
+          exit $code
 
       - name: Publish desktop checkpoint (no bundled media)
         run: powershell -NoProfile -File scripts/package-desktop.ps1
