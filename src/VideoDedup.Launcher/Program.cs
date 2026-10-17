@@ -8,12 +8,37 @@ using VideoDedup.Desktop;
 using VideoDedup.Desktop.ViewModels;
 using VideoDedup.Domain;
 using VideoDedup.Infrastructure;
+using VideoDedup.Launcher;
 using VideoDedup.Workers;
 
 internal static class Program
 {
     [STAThread]
     private static void Main(string[] args)
+    {
+        // A failure before the window exists used to end the process with an unhandled exception and a Windows crash
+        // report, which a tester reads as "the application does not start". Every such failure now creates a dialog
+        // that names the problem and the two ways out of it.
+        try
+        {
+            Run(args);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            StartupFailure.Report("Windows reported an error while starting: " +
+                exception.GetType().Name + ".", DataFolder(args), exception);
+        }
+    }
+
+    private static string DataFolder(string[] args)
+    {
+        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VideoDedup");
+        for (var index = 0; index + 1 < args.Length; index++)
+            if (args[index] == "--data") data = Path.GetFullPath(args[index + 1]);
+        return data;
+    }
+
+    private static void Run(string[] args)
     {
         var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VideoDedup");
         for (var index = 0; index + 1 < args.Length; index++)
@@ -39,6 +64,11 @@ internal static class Program
 
         // A corrupt index must not stop the application from starting, and it must never be deleted silently.
         var integrity = new SqliteIntegrityGuard().VerifyAsync(database).GetAwaiter().GetResult();
+        if (integrity.Health == DatabaseHealth.Unreadable)
+        {
+            StartupFailure.Report(integrity.Detail, data, cause: null);
+        }
+
         if (integrity.Health == DatabaseHealth.Recovered)
         {
             startupNotes.Add(integrity.Detail);
@@ -93,7 +123,9 @@ internal static class Program
         builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(match, control, s.GetRequiredService<ILogger<ProcessingService>>(), metrics));
         using var host = builder.Build();
         host.StartAsync().GetAwaiter().GetResult();
-        var app = new App();
+        // A plain Application: the UI project is a library with no App.xaml, so this process owns the one and only
+        // WPF application and entry point in the product.
+        var app = new Application();
         var dashboard = new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery),
             discovery, results, queue, new WorkFileAccess(), visuals, audios: audios, control: control);
         var confirmation = new MessageBoxConfirmationPrompt();

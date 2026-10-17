@@ -18,7 +18,7 @@ public sealed class LayerBoundaryTests
             typeof(IScanOrchestrator).Assembly,
             typeof(IProcessRunner).Assembly,
             typeof(IWorkerHeartbeat).Assembly,
-            typeof(App).Assembly)
+            typeof(MainWindow).Assembly)
         .Build();
 
     [Fact]
@@ -37,14 +37,14 @@ public sealed class LayerBoundaryTests
             .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IWorkerHeartbeat).Assembly))
             .Check(Architecture);
         Types().That().ResideInAssembly(typeof(ScanState).Assembly)
-            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(App).Assembly))
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(MainWindow).Assembly))
             .Check(Architecture);
     }
 
     [Fact]
     public void Desktop_types_must_not_depend_on_infrastructure()
     {
-        Types().That().ResideInAssembly(typeof(App).Assembly)
+        Types().That().ResideInAssembly(typeof(MainWindow).Assembly)
             .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly))
             .Check(Architecture);
     }

@@ -166,6 +166,24 @@ public sealed class SqliteIntegrityGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task An_index_that_cannot_be_opened_or_moved_is_reported_instead_of_thrown()
+    {
+        // The field failure: a database left behind by an older, restrictive ACL could be neither opened nor renamed
+        // by the account running the application, and the unhandled exception ended the process with no window.
+        var database = Path.Combine(_root, "videodedup.db");
+        File.WriteAllText(database, "not a database");
+        using var exclusive = new FileStream(database, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var report = await new SqliteIntegrityGuard().VerifyAsync(database, Token);
+
+        report.Health.Should().Be(DatabaseHealth.Unreadable);
+        report.BackupPath.Should().BeNull();
+        File.Exists(database).Should().BeTrue("an unusable index is never deleted");
+        report.Detail.Should().Contain("nothing was deleted");
+        report.Detail.Should().NotContain(_root, "the failure text is shown to a user, so it names no folder");
+    }
+
+    [Fact]
     public async Task The_guard_rejects_a_relative_path()
     {
         await FluentActions.Awaiting(() => new SqliteIntegrityGuard().VerifyAsync("videodedup.db", Token))

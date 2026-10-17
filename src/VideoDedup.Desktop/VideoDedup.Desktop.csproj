@@ -1,7 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <!-- A library on purpose: this project is the UI, not an entry point. It used to be an executable with an
+         empty App.xaml, which produced a second VideoDedup.Desktop.exe in the package whose generated Main had no
+         StartupUri - double-clicking it started an invisible process with no window, reported by a tester as "the
+         application does not run". VideoDedup.Launcher is the only composition root and the only entry point;
+         scripts/package-desktop.ps1 and Desktop tests enforce that. -->
+    <OutputType>Library</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

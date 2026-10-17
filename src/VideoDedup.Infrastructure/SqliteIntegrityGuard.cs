@@ -13,6 +13,12 @@ public enum DatabaseHealth
 
     /// <summary>The database was corrupt; it was moved aside and the next initialize creates a fresh one.</summary>
     Recovered,
+
+    /// <summary>
+    /// The database exists but cannot be used and could not be moved aside either - typically Windows denies access
+    /// to a file left behind by an older, restrictive ACL. Nothing was deleted; the caller must tell the user.
+    /// </summary>
+    Unreadable,
 }
 
 /// <summary>Outcome of starting a session. A recovered database always names the file that kept the broken data.</summary>
@@ -60,8 +66,10 @@ public sealed class SqliteIntegrityGuard(IQueueClock? clock = null)
                 problem = $"integrity_check reported '{PrivacyText.Sanitize(result)}'";
             }
         }
-        catch (Exception exception) when (exception is SqliteException or InvalidOperationException or IOException)
+        catch (Exception exception) when (exception is SqliteException or InvalidOperationException or IOException
+                                              or UnauthorizedAccessException)
         {
+            // UnauthorizedAccessException is not an IOException, and it is exactly what a restrictive ACL produces.
             problem = $"the file could not be read ({exception.GetType().Name})";
         }
 
@@ -70,7 +78,20 @@ public sealed class SqliteIntegrityGuard(IQueueClock? clock = null)
             return new DatabaseIntegrityReport(DatabaseHealth.Healthy, full, null, "Integrity check passed.");
         }
 
-        var backup = MoveAside(full);
+        string backup;
+        try
+        {
+            backup = MoveAside(full);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Moving a file the account cannot rename is also a denied operation: report it instead of throwing, so
+            // the application can explain the problem rather than disappearing with a crash.
+            return new DatabaseIntegrityReport(DatabaseHealth.Unreadable, full, null,
+                $"The index database could not be opened ({problem}) and could not be moved aside " +
+                $"({exception.GetType().Name}); nothing was deleted.");
+        }
+
         return new DatabaseIntegrityReport(DatabaseHealth.Recovered, full, backup,
             $"The index database was unusable ({problem}); it was kept as '{Path.GetFileName(backup)}' and a new index will be created.");
     }

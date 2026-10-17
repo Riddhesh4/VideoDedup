@@ -60,6 +60,19 @@ The build is **not code-signed**. There is no publisher identity, so Windows Sma
 downloaded zip and the "unknown publisher" prompt is expected. Signing requires a certificate authority the project
 does not have; no signature is fabricated. Verify the downloaded archive against the published `.sha256` instead.
 
+## Troubleshooting the first launch
+
+- **"Nothing happens when I double-click."** There is exactly one executable in the package,
+  `VideoDedup.Launcher.exe`. Anything that starts and shows no window is not this build: an earlier tester package
+  also contained `VideoDedup.Desktop.exe`, whose windowless start looked like a hang, and that file is gone.
+- **A dialog titled "VideoDedup could not start".** The application reached a problem before it could open its window
+  and is telling you instead of dying silently. The dialog names the data folder and the exception type. Access
+  denied usually means an index file left behind by an earlier version that your account cannot open: either give your
+  account full control of the named folder, or start once with a different one
+  (`VideoDedup.Launcher.exe --data "%LOCALAPPDATA%\VideoDedup-profile2"`). Nothing is ever deleted by this path.
+- **The window opens but every stage fails.** The media tools were not found. Copy the prepared `tools\media` and
+  `toolsudio` folders next to the executable, or pass `--tools` and `--audio-tools`.
+
 ## Tester checklist
 
 Please report each item as pass or fail, with the exact wording of any message you see.

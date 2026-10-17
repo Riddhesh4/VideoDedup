@@ -24,8 +24,9 @@ $readme = @'
 VideoDedup tester build
 =======================
 
-This is a portable build: unzip it anywhere and run VideoDedup.Launcher.exe. There is no installer and no registry
-entry. The build contains NO media tools; prepare them once from the source checkout:
+This is a portable build: unzip it anywhere and run VideoDedup.Launcher.exe (the only executable in the package -
+anything else that starts without a window is not this build). There is no installer and no registry entry. The build
+contains NO media tools; prepare them once from the source checkout:
 
     python scripts/prepare-media.py
 
@@ -50,6 +51,9 @@ What to test (please report pass/fail for each, with the exact wording of any me
 8.  Delete index: decline once ("canceled; nothing was removed"), then confirm. Quarantined copies stay on disk.
 9.  Your source videos are untouched and still play.
 10. Report file count, total size, scan duration and Task Manager peak memory.
+
+If a dialog says "VideoDedup could not start", the application is telling you why instead of dying silently: it names
+the data folder and offers a second folder to start with. Full details, including that path, are in docs/RELEASE.md.
 
 Full details: docs/RELEASE.md, docs/PRIVACY.md, docs/THREAT-MODEL.md. No code signature is applied, so a SmartScreen
 warning on first run is expected; verify the .sha256 next to the zip instead.
