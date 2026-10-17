@@ -1,4 +1,7 @@
-param([string]$Executable = 'src/VideoDedup.Launcher/bin/Release/net10.0-windows/VideoDedup.Launcher.exe', [string]$DataDirectory = '')
+param([string]$Executable = 'src/VideoDedup.Launcher/bin/Release/net10.0-windows/VideoDedup.Launcher.exe', [string]$DataDirectory = '',
+    # Empty means "pass no tool arguments", which is how a tester starts the packaged build: the launcher then uses
+    # <application folder>\media and <application folder>\audio.
+    [string]$ToolsDirectory = 'tools/media')
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -11,7 +14,9 @@ if (-not $dataDir) { $dataDir = Join-Path $root ('TestResults/ui-data-' + [Guid]
 # An absolute path lets the same check run against an extracted release package, not just the checkout build.
 # IsPathRooted is used instead of IsPathFullyQualified because this script also runs on Windows PowerShell 5.1.
 $executablePath = if ([System.IO.Path]::IsPathRooted($Executable)) { $Executable } else { Join-Path $root $Executable }
-$process = Start-Process -FilePath $executablePath -ArgumentList @('--tools', (Join-Path $root 'tools/media'), '--data', $dataDir) -PassThru
+$arguments = @('--data', $dataDir)
+if ($ToolsDirectory) { $arguments = @('--tools', (Join-Path $root $ToolsDirectory)) + $arguments }
+$process = Start-Process -FilePath $executablePath -ArgumentList $arguments -PassThru
 try {
     $deadline = (Get-Date).AddSeconds(40)
     $window = $null

@@ -21,11 +21,17 @@ their own redistribution obligations (`docs/MEDIA-COMPLIANCE.md`). What the zip 
 python scripts/prepare-media.py     # downloads the pinned LGPL tools, verifies SHA-256, generates fixtures
 ```
 
-Then launch with explicit tool paths:
+Then either copy `tools\media` and `tools\audio` next to `VideoDedup.Launcher.exe` in the unzipped package, or launch
+with explicit tool paths:
 
 ```powershell
 .\VideoDedup.Launcher.exe --tools tools\media --audio-tools tools\audio
 ```
+
+The copy is enough because the launcher defaults to `<application folder>\media` and `<application folder>\audio`;
+an `audio` folder keeps its inner `chromaprint-fpcalc-1.6.2-windows-x86_64\fpcalc.exe` path. This keeps the distributed
+zip tool-free for the LGPL gate while letting a tester set it up with a file copy. `scripts/desktop-smoke.ps1` accepts
+`-ToolsDirectory ''` to verify exactly that argument-free start.
 
 Without the tools the application still starts and the privacy panel works, but probe/hash/visual/audio stages fail
 with a typed tool failure and matching has nothing to compare. `--data <folder>` is supported for an isolated test

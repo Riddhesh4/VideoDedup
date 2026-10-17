@@ -28,6 +28,11 @@ This is a portable build: unzip it anywhere and run VideoDedup.Launcher.exe. The
 entry. The build contains NO media tools; prepare them once from the source checkout:
 
     python scripts/prepare-media.py
+
+Simplest: copy the prepared tools\media and tools\audio folders next to VideoDedup.Launcher.exe (the launcher
+looks for <its own folder>\media and <its own folder>\audio by default), then just start the app. Otherwise pass the
+paths explicitly:
+
     .\VideoDedup.Launcher.exe --tools <checkout>\tools\media --audio-tools <checkout>\tools\audio
 
 What to test (please report pass/fail for each, with the exact wording of any message):
