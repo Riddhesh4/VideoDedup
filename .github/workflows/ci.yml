@@ -79,16 +79,6 @@ jobs:
 
       # RE-hardening gate: prove obfuscation runs and strips type names.
       - name: Obfuscation smoke test
+        shell: pwsh
         run: |
-          dotnet publish src/VideoDedup.Domain/VideoDedup.Domain.csproj -c Release -o publish
-          dotnet tool restore
-          pwsh -Command "& '$env:GITHUB_WORKSPACE/scripts/obfuscate.ps1'"
-          pwsh -Command "
-            $bytes = [IO.File]::ReadAllBytes('publish/VideoDedup.Domain.dll');
-            $text = [Text.Encoding]::GetEncoding(28591).GetString($bytes);
-            if ($text.Contains('ScanState') -or $text.Contains('IScanOrchestrator')) {
-              Write-Error 'Obfuscation gate failed: recognizable type names survived in VideoDedup.Domain.dll';
-              exit 1
-            }
-            Write-Host 'Obfuscation gate passed: type names stripped.'
-          "
+          ./scripts/verify-obfuscation.ps1
