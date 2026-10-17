@@ -165,6 +165,58 @@ internal sealed class FakeDashboard : IProcessingDashboard
     public void ResumeWorkers() => Resumes++;
 }
 
+internal sealed class FakeMaintenanceService : IMaintenanceService
+{
+    public MaintenanceReport Report { get; set; } =
+        new(Path.Combine(Path.GetTempPath(), "video-dedup-fake"), [], 0, 0, 0, 0, 0, []);
+
+    public IndexExportResult Export { get; set; } =
+        new(Path.Combine(Path.GetTempPath(), "video-dedup-fake", "index.json"), 2048, true, 1, 4, 2, 1);
+
+    public IndexDeletionResult Deletion { get; set; } = new(true, [], [], []);
+
+    public List<IndexExportRequest> Exports { get; } = new();
+
+    public List<bool> Confirmations { get; } = new();
+
+    public int ReportCalls { get; private set; }
+
+    public Exception? Failure { get; set; }
+
+    public Task<MaintenanceReport> GetReportAsync(CancellationToken cancellationToken)
+    {
+        ReportCalls++;
+        if (Failure is not null)
+        {
+            throw Failure;
+        }
+
+        return Task.FromResult(Report);
+    }
+
+    public Task<IndexExportResult> ExportIndexAsync(IndexExportRequest request, CancellationToken cancellationToken)
+    {
+        Exports.Add(request);
+        if (Failure is not null)
+        {
+            throw Failure;
+        }
+
+        return Task.FromResult(Export with { DestinationPath = request.DestinationPath, IncludedPaths = request.IncludePaths });
+    }
+
+    public Task<IndexDeletionResult> DeleteIndexAsync(bool confirmed, CancellationToken cancellationToken)
+    {
+        Confirmations.Add(confirmed);
+        if (Failure is not null)
+        {
+            throw Failure;
+        }
+
+        return Task.FromResult(Deletion);
+    }
+}
+
 internal static class ReviewBuilders
 {
     public static readonly Guid Root = Guid.Parse("11111111-1111-1111-1111-111111111111");

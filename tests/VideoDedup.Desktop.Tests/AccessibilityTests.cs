@@ -45,13 +45,31 @@ public sealed class AccessibilityTests
     }
 
     [Fact]
-    public void The_window_documents_that_quarantine_is_reversible_and_deletion_is_absent()
+    public void The_window_documents_that_media_is_never_deleted_and_scopes_the_one_delete_action_to_the_index()
     {
         var xaml = File.ReadAllText(XamlPath);
 
         xaml.Should().Contain("permanent deletion is not available");
-        xaml.Should().NotContain("Delete");
+        xaml.Should().Contain("Your video files are never deleted");
         xaml.Should().NotContain("DeleteFile");
+        // The only destructive control is the index action, and it is named as such for screen readers.
+        xaml.Should().Contain("AutomationProperties.Name=\"Delete index data\"");
+        xaml.Should().NotContain("AutomationProperties.Name=\"Delete file\"");
+    }
+
+    [Fact]
+    public void The_desktop_never_deletes_files_itself_because_deletion_belongs_to_the_application_layer()
+    {
+        var directory = Path.Combine(Root, "src/VideoDedup.Desktop");
+        var sources = Directory.GetFiles(directory, "*.cs", SearchOption.AllDirectories);
+        sources.Should().NotBeEmpty();
+
+        foreach (var source in sources)
+        {
+            var text = File.ReadAllText(source);
+            text.Should().NotContain("File.Delete", $"{source} must not delete files");
+            text.Should().NotContain("Directory.Delete", $"{source} must not delete folders");
+        }
     }
 
     [Fact]
@@ -62,13 +80,15 @@ public sealed class AccessibilityTests
             var dashboard = new FakeDashboard();
             var window = new MainWindow(new ProcessingViewModel(dashboard),
                 new ReviewViewModel(new FakeReviewService(), new FakeQuarantineService(), new FakeConfirmationPrompt(),
-                    new FakePreviewSource()));
+                    new FakePreviewSource()),
+                new MaintenanceViewModel(new FakeMaintenanceService(), new FakeConfirmationPrompt()));
             try
             {
                 window.DataContext.Should().BeSameAs(window);
                 window.Processing.Should().NotBeNull();
                 window.Review.Should().NotBeNull();
-                foreach (var name in new[] { "Tabs", "Folder", "Scan", "Workers", "Results", "RefreshReviews", "Quarantine", "Groups", "Copies", "LoadPreview", "History" })
+                window.Maintenance.Should().NotBeNull();
+                foreach (var name in new[] { "Tabs", "Folder", "Scan", "Workers", "Results", "RefreshReviews", "Quarantine", "Groups", "Copies", "LoadPreview", "History", "Storage", "RefreshStorage", "ExportPath", "IncludePaths", "ExportIndex", "DeleteIndex" })
                 {
                     var element = window.FindName(name) as DependencyObject;
                     element.Should().NotBeNull($"the window must declare a '{name}' control");

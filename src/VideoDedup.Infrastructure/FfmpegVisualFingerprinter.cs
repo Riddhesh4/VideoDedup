@@ -5,10 +5,31 @@ using VideoDedup.Domain;
 
 namespace VideoDedup.Infrastructure;
 
-public sealed class FfmpegVisualFingerprinter(IProcessRunner runner, string executable, FrameSamplingPolicy? sampling = null, bool tryHardware = false) : IVisualFingerprinter
+public sealed class FfmpegVisualFingerprinter(IProcessRunner runner, string executable, FrameSamplingPolicy? sampling = null,
+    bool tryHardware = false, string? hardwareAcceleration = null) : IVisualFingerprinter
 {
     private readonly string _executable = Path.IsPathFullyQualified(executable) ? Path.GetFullPath(executable) : throw new ArgumentException("FFmpeg must have an absolute configured path.", nameof(executable));
     private readonly FrameSamplingPolicy _sampling = sampling ?? new();
+
+    // The accelerator is chosen by detection, not by the caller's hopes, and is validated as a bare identifier so it
+    // can only ever be an FFmpeg-known method name.
+    private readonly string _hardware = ResolveHardware(hardwareAcceleration);
+
+    private static string ResolveHardware(string? requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            return "auto";
+        }
+
+        var name = requested.Trim();
+        if (name.Length > 32 || !name.All(character => char.IsAsciiLetterOrDigit(character) || character == '_'))
+        {
+            throw new ArgumentException("A hardware accelerator name must be a short identifier.", nameof(requested));
+        }
+
+        return name;
+    }
     public async Task<VisualFingerprintResult> FingerprintAsync(string path, FileRevision expected, MediaMetadata metadata, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -33,10 +54,11 @@ public sealed class FfmpegVisualFingerprinter(IProcessRunner runner, string exec
             {
                 deadline.Token.ThrowIfCancellationRequested();
                 BinaryProcessResult? decoded = null;
-                // Hardware is opt-in. High-depth inputs always take the deterministic software path.
+                // Hardware is opt-in and capability-detected. High-depth inputs always take the deterministic
+                // software path, and any hardware failure below falls back to software for the same frame.
                 if (tryHardware && metadata.BitDepth is not > 8)
                 {
-                    try { decoded = await DecodeAsync(path, timestamp, "auto", deadline.Token).ConfigureAwait(false); }
+                    try { decoded = await DecodeAsync(path, timestamp, _hardware, deadline.Token).ConfigureAwait(false); }
                     catch (MediaProcessingException exception) when (exception.Failure is MediaFailure.ToolFailed or MediaFailure.Timeout) { }
                 }
                 if (decoded is null || decoded.ExitCode != 0 || decoded.StandardOutput.Length == 0)

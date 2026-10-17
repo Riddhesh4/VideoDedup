@@ -164,6 +164,14 @@ file sealed class StaticEvidenceSource(params FileMatchEvidence[] entries) : IMa
 
     public Task<IReadOnlyList<FileMatchEvidence>> GetEvidenceAsync(CancellationToken cancellationToken) =>
         Task.FromResult(_entries);
+
+    public Task<MatchReadiness> GetReadinessAsync(Guid fileId, CancellationToken cancellationToken)
+    {
+        var entry = _entries.FirstOrDefault(candidate => candidate.FileId == fileId);
+        return Task.FromResult(entry is null
+            ? MatchReadiness.NotIndexed
+            : entry.IsReady ? MatchReadiness.Ready : MatchReadiness.InProgress);
+    }
 }
 
 internal sealed class RecordingMatchRepository : IMatchResultRepository

@@ -41,7 +41,7 @@ public sealed class MediaProcessingTests : IDisposable
         probe.Metadata.Width.Should().Be(64);
         probe.Metadata.Height.Should().Be(48);
         probe.Metadata.VideoCodec.Should().Be("ffv1");
-        probe.Metadata                .HasAudio.Should().BeTrue();
+        probe.Metadata.HasAudio.Should().BeTrue();
         probe.Metadata.FrameRate.Should().Be(5);
         probe.Metadata.DurationSeconds.Should().BeApproximately(8, 0.1);
         var hasher = new Sha256ContentHasher();

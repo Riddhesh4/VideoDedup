@@ -6,6 +6,7 @@ testresults/
 *.trx
 publish/
 publish-obfuscated/
+release/
 obfuscar.generated.xml
 obfuscar.log
 

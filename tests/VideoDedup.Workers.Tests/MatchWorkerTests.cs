@@ -17,6 +17,7 @@ public sealed class MatchWorkerTests
         var job = new QueueJob(Guid.NewGuid(), _item.FileId, JobType.Match, JobState.Leased, 0, 0, 5,
             DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "test", DateTimeOffset.MaxValue, MediaWorker.Payload(_item), "root", null);
         _queue.ClaimAsync(Arg.Any<QueueClaimRequest>(), Arg.Any<CancellationToken>()).Returns([job]);
+        _orchestrator.GetReadinessAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(MatchReadiness.Ready);
     }
 
     private MatchWorker Worker() => new(_queue, _orchestrator);
@@ -27,6 +28,31 @@ public sealed class MatchWorkerTests
         await Worker().RunOnceAsync(Token);
         await _orchestrator.Received(1).MatchFileAsync(_item.FileId, Token);
         await _queue.Received(1).CompleteAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_file_still_being_fingerprinted_is_retried_instead_of_matched_or_completed()
+    {
+        // This is the measured first-scan case: Match jobs are enqueued with the fingerprint jobs, so a job claimed
+        // early must come back rather than report a file as matched when nothing was compared.
+        _orchestrator.GetReadinessAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(MatchReadiness.InProgress);
+        await Worker().RunOnceAsync(Token);
+
+        await _orchestrator.DidNotReceive().MatchFileAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _queue.Received(1).FailAsync(Arg.Any<Guid>(), Arg.Any<string>(),
+            MediaFailure.EvidenceNotReady.ToString(), Arg.Any<CancellationToken>());
+        await _queue.DidNotReceive().CompleteAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_file_that_can_never_be_processed_is_completed_without_retrying_forever()
+    {
+        _orchestrator.GetReadinessAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(MatchReadiness.Unprocessable);
+        await Worker().RunOnceAsync(Token);
+
+        await _orchestrator.DidNotReceive().MatchFileAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _queue.Received(1).CompleteAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _queue.DidNotReceiveWithAnyArgs().FailAsync(default, default!, default!, Arg.Any<CancellationToken>());
     }
 
     [Fact]

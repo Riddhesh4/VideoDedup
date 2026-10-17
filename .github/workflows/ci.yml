@@ -25,6 +25,12 @@ jobs:
       - name: Restore local tools
         run: dotnet tool restore
 
+      # Offline audit: every centrally pinned package must be allow-listed with a recorded license, and every
+      # dependency in THIRD-PARTY.md must match what the build actually references.
+      - name: Dependency and license audit
+        shell: pwsh
+        run: ./scripts/check-dependencies.ps1
+
       - name: Collect Domain coverage
         run: dotnet tool run dotnet-coverage -- collect -o TestResults/Domain-Coverage.cobertura.xml -f cobertura dotnet test --project tests/VideoDedup.Domain.Tests/VideoDedup.Domain.Tests.csproj -c Release --no-build
 
@@ -55,6 +61,21 @@ jobs:
 
       - name: Publish desktop checkpoint (no bundled media)
         run: powershell -NoProfile -File scripts/package-desktop.ps1
+
+      # The tester build is the same artifact the release script zips locally, so an end user can download exactly
+      # what CI verified instead of a locally built binary.
+      - name: Upload tester build
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoDedup-tester-win-x64
+          path: |
+            publish/desktop/**
+            docs/PRIVACY.md
+            docs/THREAT-MODEL.md
+            docs/RELEASE.md
+            docs/MEDIA-COMPLIANCE.md
+            THIRD-PARTY.md
+          retention-days: 30
 
       # RE-hardening gate: prove obfuscation runs and strips type names.
       - name: Obfuscation smoke test

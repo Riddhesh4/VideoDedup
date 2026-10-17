@@ -17,6 +17,16 @@ public sealed class MatchOrchestrator(IMatchEvidenceSource evidenceSource, IMatc
     public async Task<IReadOnlyList<MatchPersistenceRecord>> MatchFileAsync(Guid fileId, CancellationToken cancellationToken) =>
         await MatchCoreAsync(fileId, cancellationToken).ConfigureAwait(false);
 
+    public Task<MatchReadiness> GetReadinessAsync(Guid fileId, CancellationToken cancellationToken)
+    {
+        if (fileId == Guid.Empty)
+        {
+            throw new ArgumentException("A file id is required.", nameof(fileId));
+        }
+
+        return evidenceSource.GetReadinessAsync(fileId, cancellationToken);
+    }
+
     private async Task<IReadOnlyList<MatchPersistenceRecord>> MatchCoreAsync(Guid? onlyFileId, CancellationToken cancellationToken)
     {
         var evidence = (await evidenceSource.GetEvidenceAsync(cancellationToken).ConfigureAwait(false))
@@ -29,16 +39,29 @@ public sealed class MatchOrchestrator(IMatchEvidenceSource evidenceSource, IMatc
         {
             cancellationToken.ThrowIfCancellationRequested();
             var candidateEvidence = evidence[index];
-            if (!candidateEvidence.IsReady) continue;
+            if (!candidateEvidence.IsReady)
+            {
+                // A single-file job is work that was asked for explicitly: if its fingerprints are not written yet
+                // this must be retried, never silently reported as done. Losing it here is how a first scan finds no
+                // duplicates at all, because Match jobs are enqueued while the fingerprint workers are still running.
+                // A whole-index pass is different: unready files are simply not comparable yet and stay excluded.
+                if (onlyFileId == candidateEvidence.FileId)
+                {
+                    throw new MediaProcessingException(MediaFailure.EvidenceNotReady);
+                }
+
+                continue;
+            }
+
             if (onlyFileId is { } target && candidateEvidence.FileId != target) continue;
             var fromIndex = onlyFileId is null ? index + 1 : 0;
             for (var other = fromIndex; other < evidence.Length; other++)
             {
                 var comparedEvidence = evidence[other];
                 if (!comparedEvidence.IsReady) continue;
-            if (onlyFileId is not null && comparedEvidence.FileId == onlyFileId) continue;
+                if (onlyFileId is not null && comparedEvidence.FileId == onlyFileId) continue;
 
-            var candidate = BuildCandidate(candidateEvidence, comparedEvidence);
+                var candidate = BuildCandidate(candidateEvidence, comparedEvidence);
                 if (candidate is null) continue;
                 var decision = policy.Evaluate(candidate);
                 if (decision.MatchType == MatchType.Different) continue;

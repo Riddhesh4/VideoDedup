@@ -11,7 +11,8 @@ namespace VideoDedup.Workers;
 /// lease expiry, so pausing never abandons half-processed work. Failures are reported as sanitized type/kind text
 /// so a message can never leak a full local path into logs or the dashboard.
 /// </summary>
-public sealed class ProcessingService(MediaWorker worker, IWorkerControl control, ILogger<ProcessingService> logger) : BackgroundService
+public sealed class ProcessingService(MediaWorker worker, IWorkerControl control, ILogger<ProcessingService> logger,
+    IProcessingLog? log = null) : BackgroundService
 {
     private static readonly TimeSpan IdleDelay = TimeSpan.FromMilliseconds(500);
 
@@ -19,8 +20,13 @@ public sealed class ProcessingService(MediaWorker worker, IWorkerControl control
 
     private static readonly TimeSpan FailureDelay = TimeSpan.FromSeconds(1);
 
+    /// <summary>An idle worker writes one heartbeat this often, so a log stays readable and bounded.</summary>
+    private static readonly TimeSpan IdleHeartbeat = TimeSpan.FromSeconds(30);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var elapsed = new System.Diagnostics.Stopwatch();
+        var lastHeartbeat = DateTimeOffset.MinValue;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -32,8 +38,16 @@ public sealed class ProcessingService(MediaWorker worker, IWorkerControl control
                 }
 
                 control.ReportRunning(worker.Name);
+                elapsed.Restart();
                 var processed = await Task.Run(() => worker.RunOnceAsync(stoppingToken), stoppingToken).ConfigureAwait(false);
+                elapsed.Stop();
                 control.ReportIdle(worker.Name, processed);
+                if (processed || DateTimeOffset.UtcNow - lastHeartbeat >= IdleHeartbeat)
+                {
+                    lastHeartbeat = DateTimeOffset.UtcNow;
+                    Write(processed ? ProcessingOutcome.Processed : ProcessingOutcome.Idle, elapsed.Elapsed, null);
+                }
+
                 if (!processed)
                 {
                     await Task.Delay(IdleDelay, stoppingToken).ConfigureAwait(false);
@@ -42,14 +56,33 @@ public sealed class ProcessingService(MediaWorker worker, IWorkerControl control
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception)
             {
+                elapsed.Stop();
                 var error = Describe(exception);
                 control.ReportFailure(worker.Name, error);
+                Write(ProcessingOutcome.Failed, elapsed.Elapsed, error);
                 logger.LogWarning("Processing iteration failed ({ErrorType}); lease recovery retains unfinished work.", error);
                 await Task.Delay(FailureDelay, stoppingToken).ConfigureAwait(false);
             }
         }
 
         control.ReportStopped(worker.Name);
+    }
+
+    /// <summary>Metrics and the durable log are diagnostics: a rejected event must never stop the worker loop.</summary>
+    private void Write(ProcessingOutcome outcome, TimeSpan elapsed, string? failureKind)
+    {
+        if (log is null)
+        {
+            return;
+        }
+
+        try
+        {
+            log.Write(ProcessingLogEvent.Create(worker.Name, outcome, elapsed, failureKind));
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+        }
     }
 
     private static string Describe(Exception exception) => exception is MediaProcessingException media
@@ -94,9 +127,11 @@ public sealed class ProcessingDashboard(IScanRootRepository roots, IScanOrchestr
                     (audio.Failure is MediaFailure failure && new MediaProcessingException(failure).Retryable))
                     await queue.EnqueueAsync(file.Id, JobType.AudioFingerprint, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
             }
-            // Matching runs last: the match worker skips files whose fingerprints are not yet current,
-            // so enqueueing here is harmless while fingerprint work still queues.
-            await queue.EnqueueAsync(file.Id, JobType.Match, MediaWorker.Payload(work), new EnqueueOptions(DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
+            // Matching runs last and is retried until the file's own fingerprints exist: the lowest priority keeps
+            // Match jobs behind probe/hash/visual/audio, and the extra attempts cover the fingerprint window instead
+            // of dropping the work when a Match job is claimed too early.
+            await queue.EnqueueAsync(file.Id, JobType.Match, MediaWorker.Payload(work),
+                new EnqueueOptions(Priority: -10, MaxAttempts: 20, DriveId: root.Id.ToString("N")), cancellationToken).ConfigureAwait(false);
         }
     }
 

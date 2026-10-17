@@ -8,7 +8,10 @@ New-Item -ItemType Directory -Force $inputDir | Out-Null
 Copy-Item (Join-Path $root 'TestFixtures/generated/sample.mkv') (Join-Path $inputDir 'ui-sample.mkv') -Force
 $dataDir = $DataDirectory
 if (-not $dataDir) { $dataDir = Join-Path $root ('TestResults/ui-data-' + [Guid]::NewGuid().ToString('N')) }
-$process = Start-Process -FilePath (Join-Path $root $Executable) -ArgumentList @('--tools', (Join-Path $root 'tools/media'), '--data', $dataDir) -PassThru
+# An absolute path lets the same check run against an extracted release package, not just the checkout build.
+# IsPathRooted is used instead of IsPathFullyQualified because this script also runs on Windows PowerShell 5.1.
+$executablePath = if ([System.IO.Path]::IsPathRooted($Executable)) { $Executable } else { Join-Path $root $Executable }
+$process = Start-Process -FilePath $executablePath -ArgumentList @('--tools', (Join-Path $root 'tools/media'), '--data', $dataDir) -PassThru
 try {
     $deadline = (Get-Date).AddSeconds(40)
     $window = $null
@@ -41,6 +44,12 @@ try {
     if (-not $complete) { throw 'UI did not display completed processing' }
     Write-Host 'WPF UI smoke: folder entered, scan invoked, completed result displayed.'
 
+    # The worker grid binds Application-level properties by name ({Binding Name}); if obfuscation renamed them the
+    # columns would render empty, so their presence proves XAML bindings still resolve in this build.
+    foreach ($worker in @('Probe', 'Hash', 'Visual', 'Audio', 'Match')) {
+        if ($null -eq (Find-Name $worker)) { throw "Bound worker '$worker' is missing from the worker grid" }
+    }
+
     # Review tab accessibility: every review control must be reachable by name from UI Automation,
     # which is also what a screen reader uses.
     $reviewTab = Find-Name 'Review section'
@@ -57,7 +66,18 @@ try {
     if ($quarantineButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Current.IsEnabled) {
         throw 'Quarantine must stay disabled until an actionable group is selected'
     }
-    Write-Host 'WPF UI smoke passed: processing completed and the accessible review controls are reachable.'
+    # Privacy and data panel: the released build must expose the local-storage summary and the guarded index actions,
+    # which is also the interface an end user tests when checking where their data lives.
+    $privacyTab = Find-Name 'Privacy and data section'
+    if ($null -eq $privacyTab) { throw 'Privacy and data tab is not exposed to UI Automation' }
+    $privacyTab.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Seconds 1
+    foreach ($name in @('Privacy notice', 'Application storage usage', 'Application data folder', 'Refresh storage usage',
+            'Index export file path', 'Include file names and paths', 'Export index', 'Delete index data')) {
+        if ($null -eq (Find-Name $name)) { throw "Privacy control '$name' is missing from UI Automation" }
+    }
+    if ($null -eq (Find-Name 'Privacy notice')) { throw 'Privacy notice is missing' }
+    Write-Host 'WPF UI smoke passed: processing completed, review controls are reachable, and the privacy panel is present.'
     $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
     if (-not $process.WaitForExit(20000)) { throw 'Desktop did not shut down cleanly' }
     if ($process.ExitCode -ne 0) { throw "Desktop exit code $($process.ExitCode)" }

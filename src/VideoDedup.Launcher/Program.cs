@@ -30,6 +30,26 @@ internal static class Program
         var probePath = Path.Combine(tools, "ffprobe.exe");
         var ffmpegPath = Path.Combine(tools, "ffmpeg.exe");
         var runner = new ProcessRunner([probePath, ffmpegPath]);
+
+        // Privacy-safe diagnostics: bounded JSON lines on disk plus in-memory counters for the dashboard and the
+        // report. The metrics object forwards every event to the durable log, so one wire-up serves both.
+        var log = new JsonlProcessingLog(data);
+        var metrics = new ProcessingMetrics(sink: log);
+        var startupNotes = new List<string>();
+
+        // A corrupt index must not stop the application from starting, and it must never be deleted silently.
+        var integrity = new SqliteIntegrityGuard().VerifyAsync(database).GetAwaiter().GetResult();
+        if (integrity.Health == DatabaseHealth.Recovered)
+        {
+            startupNotes.Add(integrity.Detail);
+            log.Write(ProcessingLogEvent.Create("Startup", ProcessingOutcome.Failed, TimeSpan.Zero, "IndexRecovered"));
+        }
+
+        // Hardware decoding is a detected capability, never an assumption: the tool is asked, and any decode failure
+        // still falls back to the deterministic software path inside the fingerprinter.
+        var capabilities = new FfmpegMediaCapabilities(runner, ffmpegPath).DetectAsync().GetAwaiter().GetResult();
+        startupNotes.Add(capabilities.Note);
+
         using var queue = new SqliteJobQueue(database);
         queue.InitializeAsync(CancellationToken.None).GetAwaiter().GetResult();
         var results = new SqliteMediaProcessingRepository(database);
@@ -39,7 +59,8 @@ internal static class Program
         var hash = new HashWorker(queue, results, new Sha256ContentHasher());
         var visuals = new SqliteVisualProcessingRepository(database);
         var visual = new VisualFingerprintWorker(queue, results, visuals, new FfprobeMediaProbe(runner, probePath),
-            new FfmpegVisualFingerprinter(runner, ffmpegPath));
+            new FfmpegVisualFingerprinter(runner, ffmpegPath, tryHardware: capabilities.HardwareDecodeAvailable,
+                hardwareAcceleration: capabilities.Acceleration));
         var audios = new SqliteAudioProcessingRepository(database);
         var audio = new AudioFingerprintWorker(queue, audios, results, new FfprobeMediaProbe(runner, probePath),
             new FpcalcAudioFingerprinter(runner, Path.Combine(audioTools, "chromaprint-fpcalc-1.6.2-windows-x86_64", "fpcalc.exe")));
@@ -57,22 +78,31 @@ internal static class Program
             new QuarantineServiceOptions(Path.Combine(data, "Quarantine")));
         var review = new ReviewService(matchResults, new SqliteReviewDecisionStore(database), catalog, quarantineLog, storage);
 
+        // Privacy and data surface: storage report, export, and the guarded delete-index action.
+        var appData = new AppDataStore(data);
+        var decisions = new SqliteReviewDecisionStore(database);
+        var maintenance = new MaintenanceService(appData,
+            new AppIndexSnapshotSource(roots, discovery, results, visuals, audios, matchResults, decisions, quarantineLog),
+            queue, log, metrics, startupNotes);
+
         var builder = Host.CreateApplicationBuilder();
-        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(probe, control, s.GetRequiredService<ILogger<ProcessingService>>()));
-        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(hash, control, s.GetRequiredService<ILogger<ProcessingService>>()));
-        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(visual, control, s.GetRequiredService<ILogger<ProcessingService>>()));
-        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(audio, control, s.GetRequiredService<ILogger<ProcessingService>>()));
-        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(match, control, s.GetRequiredService<ILogger<ProcessingService>>()));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(probe, control, s.GetRequiredService<ILogger<ProcessingService>>(), metrics));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(hash, control, s.GetRequiredService<ILogger<ProcessingService>>(), metrics));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(visual, control, s.GetRequiredService<ILogger<ProcessingService>>(), metrics));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(audio, control, s.GetRequiredService<ILogger<ProcessingService>>(), metrics));
+        builder.Services.AddSingleton<IHostedService>(s => new ProcessingService(match, control, s.GetRequiredService<ILogger<ProcessingService>>(), metrics));
         using var host = builder.Build();
         host.StartAsync().GetAwaiter().GetResult();
         var app = new App();
         var dashboard = new ProcessingDashboard(roots, new ScanOrchestrator(new FileSystemDiscoverySource(), discovery),
             discovery, results, queue, new WorkFileAccess(), visuals, audios: audios, control: control);
+        var confirmation = new MessageBoxConfirmationPrompt();
         try
         {
             app.Run(new MainWindow(new ProcessingViewModel(dashboard),
-                new ReviewViewModel(review, quarantine, new MessageBoxConfirmationPrompt(),
-                    new FfmpegFramePreviewSource(runner, ffmpegPath))));
+                new ReviewViewModel(review, quarantine, confirmation,
+                    new FfmpegFramePreviewSource(runner, ffmpegPath)),
+                new MaintenanceViewModel(maintenance, confirmation)));
         }
         finally { host.StopAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult(); }
     }

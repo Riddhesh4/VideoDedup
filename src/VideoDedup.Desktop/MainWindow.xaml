@@ -169,6 +169,51 @@
                     </Grid>
                 </DockPanel>
             </TabItem>
+            <TabItem Header="Pri_vacy and data" AutomationProperties.Name="Privacy and data section">
+                <DockPanel Margin="8">
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="{Binding Maintenance.NoticeText}" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Privacy notice" />
+                        <TextBlock Text="Local storage" FontWeight="Bold" Margin="0,12,0,4" />
+                        <DataGrid x:Name="Storage" ItemsSource="{Binding Maintenance.Areas}" IsReadOnly="True"
+                                  AutoGenerateColumns="False" MaxHeight="200"
+                                  AutomationProperties.Name="Application storage usage">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Area" Binding="{Binding Area}" Width="220" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="110" />
+                                <DataGridTextColumn Header="Deleting the index" Binding="{Binding Detail}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="{Binding Maintenance.DataRootText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Application data folder" />
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button x:Name="RefreshStorage" Content="Re_fresh storage" Padding="14,6"
+                                    Command="{Binding Maintenance.RefreshCommand}"
+                                    AutomationProperties.Name="Refresh storage usage" />
+                            <TextBox x:Name="ExportPath" Width="320" Margin="14,0,0,0"
+                                     Text="{Binding Maintenance.ExportPath, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Index export file path" />
+                            <CheckBox x:Name="IncludePaths" Content="Include file _names and paths" Margin="14,0,0,0"
+                                      VerticalAlignment="Center" IsChecked="{Binding Maintenance.IncludePaths}"
+                                      AutomationProperties.Name="Include file names and paths" />
+                            <Button x:Name="ExportIndex" Content="E_xport index" Padding="14,6" Margin="14,0,0,0"
+                                    Command="{Binding Maintenance.ExportCommand}"
+                                    AutomationProperties.Name="Export index" />
+                            <Button x:Name="DeleteIndex" Content="_Delete index" Padding="14,6" Margin="10,0,0,0"
+                                    Command="{Binding Maintenance.DeleteIndexCommand}"
+                                    AutomationProperties.Name="Delete index data" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Maintenance.StatusMessage}" Margin="0,10,0,4" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Privacy and data status" />
+                        <TextBlock Text="{Binding Maintenance.ErrorMessage}" Foreground="#B00020" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Privacy and data error" />
+                        <TextBlock Text="{Binding Maintenance.RetentionText}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Retention notes" />
+                        <TextBlock Margin="0,12,0,0" TextWrapping="Wrap"
+                                   Text="Your video files are never deleted by these actions, and quarantined copies stay where they are until you restore them in the review tab." />
+                    </StackPanel>
+                </DockPanel>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

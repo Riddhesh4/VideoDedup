@@ -8,10 +8,32 @@ namespace VideoDedup.Application;
 public sealed record FileMatchEvidence(Guid FileId, Guid RootId, string? Sha256,
     IReadOnlyList<VisualFingerprint> VisualFrames, AudioFingerprint? Audio, bool IsReady);
 
+/// <summary>
+/// Why a file can or cannot be matched right now. "Still being fingerprinted" must be retried, while a file whose
+/// processing failed will never become ready and must not be retried forever.
+/// </summary>
+public enum MatchReadiness
+{
+    /// <summary>The file is no longer indexed, so there is nothing to match.</summary>
+    NotIndexed,
+
+    /// <summary>Metadata, hash, visual or audio evidence is missing or stale and is expected to arrive.</summary>
+    InProgress,
+
+    /// <summary>Every required fingerprint is current; the file can be compared.</summary>
+    Ready,
+
+    /// <summary>A processing stage failed permanently (for example an unsupported or corrupt file).</summary>
+    Unprocessable,
+}
+
 /// <summary>Gathers fully-processed files and their fingerprints for cross-root pair matching.</summary>
 public interface IMatchEvidenceSource
 {
     Task<IReadOnlyList<FileMatchEvidence>> GetEvidenceAsync(CancellationToken cancellationToken);
+
+    /// <summary>Classifies one file without building the whole evidence set.</summary>
+    Task<MatchReadiness> GetReadinessAsync(Guid fileId, CancellationToken cancellationToken);
 }
 
 /// <summary>Durable, canonical, cancelled-pair-safe persistence row for one decided pair.</summary>
@@ -104,6 +126,9 @@ public interface IMatchOrchestrator
     Task<IReadOnlyList<MatchPersistenceRecord>> MatchAllAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<MatchPersistenceRecord>> MatchFileAsync(Guid fileId, CancellationToken cancellationToken);
+
+    /// <summary>Whether one file can be matched yet; see <see cref="MatchReadiness"/>.</summary>
+    Task<MatchReadiness> GetReadinessAsync(Guid fileId, CancellationToken cancellationToken);
 }
 
 public static class MatchPairExtensions

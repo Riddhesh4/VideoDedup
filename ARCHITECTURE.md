@@ -31,7 +31,7 @@ Assume scanned media and filenames are untrusted. Protect user data from acciden
 4. No credentials, API keys, signing keys, or secrets in source, binaries, logs, or test fixtures. If a future feature requires a local secret, use Windows DPAPI through a reviewed abstraction; never claim that obfuscation protects embedded secrets.
 5. Destructive actions are forbidden by default. Quarantine is the default safe action, with explicit confirmation, last-copy protection, and an undo/audit record.
 6. Pin external binary versions and hashes; maintain `THIRD-PARTY.md`; reject GPL/nonfree artifacts unless a documented licensing decision changes.
-7. Release obfuscation with pinned Obfuscar is a reverse-engineering deterrent only. Keep an unobfuscated build for diagnostics, never ship it as the release artifact. Verify a published/packaged WPF smoke run after obfuscation; preserve XAML/binding/reflection names as needed. Do not use ReadyToRun or NativeAOT as security claims.
+7. Release obfuscation with pinned Obfuscar is a reverse-engineering deterrent only. The shipped release artifact is unobfuscated (decision 24): a full-app obfuscated publish was measured not to start, and the Domain-only gate is the form this project verifies. CI enforces that gate (publish → obfuscate → fail if `ScanState`/`IScanOrchestrator` survive in the Domain assembly) and any future full-app attempt must prove a passing packaged smoke run with the assemblies renamed before it may ship. Do not use ReadyToRun or NativeAOT as security claims, and never claim obfuscation is an authorization boundary.
 8. Report limitations honestly: client-side code can be inspected; the scanner is not a DRM/anti-tamper system.
 
 ## Quality gates

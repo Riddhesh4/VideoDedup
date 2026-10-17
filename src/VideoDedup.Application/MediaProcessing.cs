@@ -1,11 +1,18 @@
 namespace VideoDedup.Application;
 
-public enum MediaFailure { Missing, AccessDenied, Changed, Unsupported, InvalidData, ToolUnavailable, ToolFailed, Timeout, OutputLimit }
+public enum MediaFailure { Missing, AccessDenied, Changed, Unsupported, InvalidData, ToolUnavailable, ToolFailed, Timeout, OutputLimit, EvidenceNotReady }
 
 public sealed class MediaProcessingException(MediaFailure failure) : Exception($"Media processing failed: {failure}.")
 {
     public MediaFailure Failure { get; } = failure;
-    public bool Retryable => Failure is MediaFailure.Changed or MediaFailure.AccessDenied or MediaFailure.Timeout or MediaFailure.ToolUnavailable or MediaFailure.ToolFailed;
+
+    /// <summary>
+    /// A retryable failure is expected to succeed later without any user action: transient access problems, a
+    /// changed file, a tool that was busy, or — for matching — fingerprints that other workers have not finished
+    /// writing yet. Non-retryable failures are terminal for the current job.
+    /// </summary>
+    public bool Retryable => Failure is MediaFailure.Changed or MediaFailure.AccessDenied or MediaFailure.Timeout
+        or MediaFailure.ToolUnavailable or MediaFailure.ToolFailed or MediaFailure.EvidenceNotReady;
 }
 
 public sealed record FileRevision(long SizeBytes, DateTimeOffset ModifiedUtc, string? FileIdentity = null);

@@ -33,6 +33,58 @@ public sealed class MatchOrchestrationTests
         Enumerable.Range(0, count).Select(i => seed + (uint)i * 0x9E3779B1u).ToList();
 
     [Fact]
+    public async Task Readiness_separates_still_arriving_evidence_from_a_file_that_is_not_indexed()
+    {
+        var orchestrator = Orchestrator(
+            new FileMatchEvidence(IdA, Root1, ShaA, Array.Empty<VisualFingerprint>(), null, IsReady: false),
+            Ready(IdB, Root2, ShaA));
+        var token = TestContext.Current.CancellationToken;
+
+        (await orchestrator.GetReadinessAsync(IdA, token)).Should().Be(MatchReadiness.InProgress);
+        (await orchestrator.GetReadinessAsync(IdB, token)).Should().Be(MatchReadiness.Ready);
+        (await orchestrator.GetReadinessAsync(Guid.NewGuid(), token)).Should().Be(MatchReadiness.NotIndexed);
+        await FluentActions.Awaiting(() => orchestrator.GetReadinessAsync(Guid.Empty, token))
+            .Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task A_single_file_job_whose_fingerprints_are_not_written_yet_is_retryable_never_silently_done()
+    {
+        // Measured on a first scan: Match jobs are claimed while the fingerprint workers are still running. Completing
+        // such a job is how a scan of twelve identical copies reported zero matches.
+        var orchestrator = Orchestrator(
+            new FileMatchEvidence(IdA, Root1, ShaA, Array.Empty<VisualFingerprint>(), null, IsReady: false),
+            Ready(IdB, Root2, ShaA));
+
+        var failure = await FluentActions
+            .Awaiting(() => orchestrator.MatchFileAsync(IdA, TestContext.Current.CancellationToken))
+            .Should().ThrowAsync<MediaProcessingException>();
+
+        failure.Which.Failure.Should().Be(MediaFailure.EvidenceNotReady);
+        failure.Which.Retryable.Should().BeTrue("the queue must bring the job back once the fingerprints exist");
+        await _repository.DidNotReceive().SaveAsync(Arg.Any<MatchPersistenceRecord>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_whole_index_pass_still_skips_files_that_are_not_ready_instead_of_failing()
+    {
+        var orchestrator = Orchestrator(
+            new FileMatchEvidence(IdA, Root1, ShaA, Array.Empty<VisualFingerprint>(), null, IsReady: false),
+            Ready(IdB, Root2, ShaA));
+
+        (await orchestrator.MatchAllAsync(TestContext.Current.CancellationToken)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Evidence_not_ready_is_the_only_new_retryable_failure_and_terminal_failures_stay_terminal()
+    {
+        new MediaProcessingException(MediaFailure.EvidenceNotReady).Retryable.Should().BeTrue();
+        new MediaProcessingException(MediaFailure.Unsupported).Retryable.Should().BeFalse();
+        new MediaProcessingException(MediaFailure.InvalidData).Retryable.Should().BeFalse();
+        new MediaProcessingException(MediaFailure.Missing).Retryable.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Exact_hash_pairs_are_persisted_as_exact()
     {
         var evidence = Orchestrator(
@@ -139,6 +191,14 @@ file sealed class StaticEvidenceSource(params FileMatchEvidence[] entries) : IMa
 
     public Task<IReadOnlyList<FileMatchEvidence>> GetEvidenceAsync(CancellationToken cancellationToken) =>
         Task.FromResult(_entries);
+
+    public Task<MatchReadiness> GetReadinessAsync(Guid fileId, CancellationToken cancellationToken)
+    {
+        var entry = _entries.FirstOrDefault(candidate => candidate.FileId == fileId);
+        return Task.FromResult(entry is null
+            ? MatchReadiness.NotIndexed
+            : entry.IsReady ? MatchReadiness.Ready : MatchReadiness.InProgress);
+    }
 }
 
 file static class PairExtensions

@@ -9,11 +9,12 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _refreshing;
 
-    public MainWindow(ProcessingViewModel processing, ReviewViewModel review)
+    public MainWindow(ProcessingViewModel processing, ReviewViewModel review, MaintenanceViewModel maintenance)
     {
         InitializeComponent();
         Processing = processing;
         Review = review;
+        Maintenance = maintenance;
         DataContext = this;
         _timer.Tick += (_, _) => Tick();
         Loaded += OnLoaded;
@@ -31,6 +32,9 @@ public partial class MainWindow : Window
     /// <summary>Bound by XAML as <c>{Binding Review.*}</c>.</summary>
     public ReviewViewModel Review { get; }
 
+    /// <summary>Bound by XAML as <c>{Binding Maintenance.*}</c>.</summary>
+    public MaintenanceViewModel Maintenance { get; }
+
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         // Quarantine recovery runs once at startup so an interrupted move is resolved before review begins.
@@ -45,6 +49,14 @@ public partial class MainWindow : Window
         }
 
         await Processing.RefreshAsync(CancellationToken.None);
+        try
+        {
+            await Maintenance.RefreshAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            Maintenance.ReportExternalFailure(exception);
+        }
     }
 
     private void Tick()

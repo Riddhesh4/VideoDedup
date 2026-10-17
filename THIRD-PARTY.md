@@ -15,6 +15,14 @@ the exact source downloaded from, per the Phase 0 licensing gate in PLAN-REVIEW.
 | FluentAssertions | 7.2.0 | Apache-2.0 | NuGet; fluentassertions.com | Test-only assertions; pinned to Apache-2.0 release (v8+ has paid commercial-use terms). |
 | dotnet-coverage | 18.12.0 | Microsoft .NET Library License | Local dotnet tool manifest | Development-only local coverage measurement; not included in app distribution. |
 | System.IO.FileSystem.AccessControl | 5.0.0 | MIT | NuGet (dotnet/runtime) | Phase 2 JSON-bridge ACL hardening only; best-effort per-user LocalAppData ACLs. |
+| Microsoft.Extensions.Hosting | 10.0.13 | MIT | NuGet (dotnet/runtime) | Hosted worker lifetime in the launcher; no network or telemetry components. |
+| xunit.v3 | 4.0.2 | Apache-2.0 | NuGet (xunit.net) | Test-only runner on Microsoft.Testing.Platform. |
+| xunit.runner.visualstudio | 4.0.1 | Apache-2.0 | NuGet (xunit.net) | Test-only adapter. |
+| Microsoft.NET.Test.Sdk | 17.14.1 | MIT | NuGet (Microsoft) | Test-only host. |
+| coverlet.collector | 10.1.0 | MIT | NuGet (coverlet) | Test-only coverage collector. |
+| NSubstitute | 6.2.0 | BSD-3-Clause | NuGet (nsubstitute) | Test-only doubles for boundary fakes. |
+| Reqnroll | 3.3.4 | BSD-3-Clause | NuGet (reqnroll) | BDD feature parser/runner (test-only). |
+| Reqnroll.xunit.v3 | 3.3.4 | BSD-3-Clause | NuGet (reqnroll) | BDD integration with the xUnit v3 runner (test-only). |
 
 ## Phase 6 fpcalc pin
 
@@ -30,6 +38,8 @@ The archive was inspected and contains only `chromaprint-fpcalc-1.6.2-windows-x8
    a GPL artifact (e.g. a gyan.dev FFmpeg build) requires a documented exception in DECISIONS.md.
 2. Every new external binary gets a row here **in the same commit** that starts using it.
 3. Pinned versions change only via PR with the reason recorded in DECISIONS.md.
+4. `scripts/check-dependencies.ps1` fails the release pipeline when a package is declared without a row here
+   (allow-list) or when a central version is not an exact pin. It runs offline and is part of CI.
 
 ## Phase 4 pinned media tools
 
