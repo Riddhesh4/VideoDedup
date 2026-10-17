@@ -48,4 +48,48 @@ public sealed class LayerBoundaryTests
             .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly))
             .Check(Architecture);
     }
+
+    [Fact]
+    public void Application_types_must_not_depend_on_adapters_or_orchestration()
+    {
+        Types().That().ResideInAssembly(typeof(IScanOrchestrator).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly))
+            .Check(Architecture);
+        Types().That().ResideInAssembly(typeof(IScanOrchestrator).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IWorkerHeartbeat).Assembly))
+            .Check(Architecture);
+        Types().That().ResideInAssembly(typeof(IScanOrchestrator).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(MainWindow).Assembly))
+            .Check(Architecture);
+    }
+
+    [Fact]
+    public void Infrastructure_types_must_not_depend_on_workers_or_desktop()
+    {
+        Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IWorkerHeartbeat).Assembly))
+            .Check(Architecture);
+        Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(MainWindow).Assembly))
+            .Check(Architecture);
+    }
+
+    [Fact]
+    public void Worker_types_must_not_depend_on_infrastructure_or_desktop()
+    {
+        Types().That().ResideInAssembly(typeof(IWorkerHeartbeat).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IProcessRunner).Assembly))
+            .Check(Architecture);
+        Types().That().ResideInAssembly(typeof(IWorkerHeartbeat).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(MainWindow).Assembly))
+            .Check(Architecture);
+    }
+
+    [Fact]
+    public void Desktop_types_must_not_depend_on_workers()
+    {
+        Types().That().ResideInAssembly(typeof(MainWindow).Assembly)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(typeof(IWorkerHeartbeat).Assembly))
+            .Check(Architecture);
+    }
 }

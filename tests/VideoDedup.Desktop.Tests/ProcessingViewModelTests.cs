@@ -25,6 +25,24 @@ public sealed class ProcessingViewModelTests
     }
 
     [Fact]
+    public async Task Refreshing_tracks_queued_work_for_the_review_empty_state()
+    {
+        var dashboard = new FakeDashboard { Stats = new QueueStats(2, 0, 0, 0) };
+        var viewModel = new ProcessingViewModel(dashboard);
+
+        await viewModel.RefreshAsync(Token);
+
+        viewModel.HasPendingWork.Should().BeTrue();
+        viewModel.IsBusy.Should().BeTrue();
+
+        dashboard.Stats = new QueueStats(0, 0, 2, 0);
+        await viewModel.RefreshAsync(Token);
+
+        viewModel.HasPendingWork.Should().BeFalse();
+        viewModel.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
     public void Pausing_and_resuming_workers_toggles_command_availability()
     {
         var dashboard = new FakeDashboard();

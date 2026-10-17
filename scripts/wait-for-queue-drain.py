@@ -49,6 +49,12 @@ def read_counts(database: str) -> dict:
             by_type[f"{name}.{state}"] = row["n"]
         files = table_count(connection, "media_results")
         matches = table_count(connection, "match_results")
+        try:
+            audio_failures = connection.execute(
+                "SELECT COUNT(*) FROM audio_results WHERE Failure IS NOT NULL"
+            ).fetchone()[0]
+        except sqlite3.OperationalError:
+            audio_failures = 0
         return {
             "queued": by_state.get(0, 0),
             "leased": by_state.get(1, 0),
@@ -56,6 +62,7 @@ def read_counts(database: str) -> dict:
             "deadLetter": by_state.get(3, 0),
             "filesIndexOfRecordRows": files,
             "matchRows": matches,
+            "audioFailures": audio_failures,
             "byTypeAndState": dict(sorted(by_type.items())),
         }
     finally:

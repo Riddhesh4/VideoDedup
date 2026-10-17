@@ -21,7 +21,7 @@ public sealed class AudioFingerprintTests : IDisposable
     private static string Fpcalc => Path.Combine(Root, "tools/audio/chromaprint-fpcalc-1.6.2-windows-x86_64/fpcalc.exe");
     private static string Ffmpeg => Path.Combine(Root, "tools/media/ffmpeg.exe");
     private static string Probe => Path.Combine(Root, "tools/media/ffprobe.exe");
-    private static ProcessRunner Runner() => new([Fpcalc, Ffmpeg, Probe]);
+    private static ProcessRunner Runner() => MediaToolProcessRunnerFactory.Create(Probe, Ffmpeg, Fpcalc);
     private static ProcessRunner ProbeRunner() => new([Probe]);
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 

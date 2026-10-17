@@ -56,9 +56,24 @@ public sealed class ReviewViewModelTests
 
         viewModel.Groups.Should().BeEmpty();
         viewModel.SelectedGroup.Should().BeNull();
-        viewModel.StatusMessage.Should().Contain("No duplicate groups yet");
+        viewModel.StatusMessage.Should().Contain("No duplicate groups found in the completed scan");
         viewModel.KeepCommand.CanExecute(null).Should().BeFalse();
         viewModel.QuarantineCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Empty_state_distinguishes_active_matching_from_a_completed_scan()
+    {
+        var (viewModel, _, _, _, _) = Build();
+        viewModel.IsProcessing = true;
+
+        await viewModel.RefreshAsync(Token);
+
+        viewModel.StatusMessage.Should().Contain("still in progress");
+
+        viewModel.IsProcessing = false;
+
+        viewModel.StatusMessage.Should().Contain("No duplicate groups found in the completed scan");
     }
 
     [Fact]

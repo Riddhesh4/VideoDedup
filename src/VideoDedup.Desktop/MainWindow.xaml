@@ -17,8 +17,13 @@
                 <DockPanel Margin="8">
                     <StackPanel DockPanel.Dock="Top">
                         <TextBlock Text="Folder path" />
-                        <TextBox x:Name="Folder" AutomationProperties.Name="Folder path" Margin="0,4,0,10"
-                                 Text="{Binding Processing.Folder, UpdateSourceTrigger=PropertyChanged}" />
+                        <DockPanel Margin="0,4,0,10" LastChildFill="True">
+                            <Button x:Name="BrowseFolder" DockPanel.Dock="Right" Content="_Browse..."
+                                    Click="BrowseFolder_Click" Margin="8,0,0,0" Padding="14,6"
+                                    AutomationProperties.Name="Browse for folder" />
+                            <TextBox x:Name="Folder" AutomationProperties.Name="Folder path"
+                                     Text="{Binding Processing.Folder, UpdateSourceTrigger=PropertyChanged}" />
+                        </DockPanel>
                         <StackPanel Orientation="Horizontal">
                             <Button x:Name="Scan" Content="_Scan and process" Click="Scan_Click" Padding="14,6"
                                     AutomationProperties.Name="Scan and process folder" IsDefault="True" />
@@ -33,6 +38,8 @@
                         </StackPanel>
                         <TextBlock x:Name="Status" Text="{Binding Processing.StatusMessage}" Margin="0,12,0,4" TextWrapping="Wrap"
                                    AutomationProperties.Name="Processing status" />
+                        <ProgressBar Height="8" IsIndeterminate="{Binding Processing.IsBusy}"
+                                     AutomationProperties.Name="Scan and processing activity" />
                         <TextBlock Text="{Binding Processing.ErrorMessage}" Foreground="#B00020" TextWrapping="Wrap"
                                    AutomationProperties.Name="Processing error" />
                         <TextBlock Text="Workers" FontWeight="Bold" Margin="0,8,0,4" />
@@ -49,7 +56,18 @@
                         <TextBlock Text="Indexed files" FontWeight="Bold" Margin="0,12,0,4" />
                     </StackPanel>
                     <DataGrid x:Name="Results" ItemsSource="{Binding Processing.Rows}" IsReadOnly="True"
-                              AutoGenerateColumns="True" AutomationProperties.Name="Processing results" />
+                              AutoGenerateColumns="False" CanUserAddRows="False"
+                              HeadersVisibility="Column" RowHeaderWidth="0" MinColumnWidth="80"
+                              AutomationProperties.Name="Processing results">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="File" Binding="{Binding Path}" Width="2*" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
+                            <DataGridTextColumn Header="Codec" Binding="{Binding Codec}" Width="100" />
+                            <DataGridTextColumn Header="Visual frames" Binding="{Binding Visual}" Width="120" />
+                            <DataGridTextColumn Header="Audio fingerprint" Binding="{Binding Audio}" Width="140" />
+                            <DataGridTextColumn Header="SHA-256" Binding="{Binding Sha256}" Width="220" />
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </DockPanel>
             </TabItem>
             <TabItem Header="_Review" AutomationProperties.Name="Review section">

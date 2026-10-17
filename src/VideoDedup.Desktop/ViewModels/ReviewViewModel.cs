@@ -23,6 +23,7 @@ public sealed class ReviewViewModel : ObservableObject
     private ReviewGroup? _selectedGroup;
     private ReviewFileInfo? _selectedFile;
     private bool _showOnlyUndecided;
+    private bool _isProcessing;
     private string _statusMessage = "Ready.";
     private string? _errorMessage;
     private byte[]? _leftPreviewBytes;
@@ -120,6 +121,18 @@ public sealed class ReviewViewModel : ObservableObject
         }
     }
 
+    public bool IsProcessing
+    {
+        get => _isProcessing;
+        set
+        {
+            if (SetProperty(ref _isProcessing, value) && _allGroups.Count == 0 && ErrorMessage is null)
+            {
+                StatusMessage = SummaryText();
+            }
+        }
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -212,7 +225,9 @@ public sealed class ReviewViewModel : ObservableObject
     }
 
     private string SummaryText() => _allGroups.Count == 0
-        ? "No duplicate groups yet. Scan a folder in the Processing tab, then refresh."
+        ? IsProcessing
+            ? "Scanning or matching is still in progress. Duplicate groups will appear here as matching completes."
+            : "No duplicate groups found in the completed scan. Scan another folder or refresh after indexing more files."
         : $"{_allGroups.Count} duplicate group(s), {_allGroups.Count(group => group.IsUndecided)} still undecided.";
 
     /// <summary>Reloads groups and history without overwriting the message of the action that asked for it.</summary>

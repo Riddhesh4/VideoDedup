@@ -54,7 +54,8 @@ internal static class Program
         var database = Path.Combine(data, "videodedup.db");
         var probePath = Path.Combine(tools, "ffprobe.exe");
         var ffmpegPath = Path.Combine(tools, "ffmpeg.exe");
-        var runner = new ProcessRunner([probePath, ffmpegPath]);
+        var fpcalcPath = Path.Combine(audioTools, "chromaprint-fpcalc-1.6.2-windows-x86_64", "fpcalc.exe");
+        var runner = MediaToolProcessRunnerFactory.Create(probePath, ffmpegPath, fpcalcPath);
 
         // Privacy-safe diagnostics: bounded JSON lines on disk plus in-memory counters for the dashboard and the
         // report. The metrics object forwards every event to the durable log, so one wire-up serves both.
@@ -93,7 +94,7 @@ internal static class Program
                 hardwareAcceleration: capabilities.Acceleration));
         var audios = new SqliteAudioProcessingRepository(database);
         var audio = new AudioFingerprintWorker(queue, audios, results, new FfprobeMediaProbe(runner, probePath),
-            new FpcalcAudioFingerprinter(runner, Path.Combine(audioTools, "chromaprint-fpcalc-1.6.2-windows-x86_64", "fpcalc.exe")));
+            new FpcalcAudioFingerprinter(runner, fpcalcPath));
         var matchResults = new SqliteMatchResultRepository(database);
         var matching = new MatchOrchestrator(new MatchEvidenceSource(discovery, roots, results, visuals, audios),
             matchResults, new DuplicateMatchPolicy(MatchPolicyOptions.Default));

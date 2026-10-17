@@ -16,6 +16,7 @@ public sealed class ProcessingViewModel : ObservableObject
     private string? _errorMessage;
     private bool _scanning;
     private bool _paused;
+    private bool _hasPendingWork;
 
     public ProcessingViewModel(IProcessingDashboard dashboard)
     {
@@ -68,6 +69,7 @@ public sealed class ProcessingViewModel : ObservableObject
             {
                 ScanCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
+                Raise(nameof(IsBusy));
             }
         }
     }
@@ -84,6 +86,20 @@ public sealed class ProcessingViewModel : ObservableObject
             }
         }
     }
+
+    public bool HasPendingWork
+    {
+        get => _hasPendingWork;
+        private set
+        {
+            if (SetProperty(ref _hasPendingWork, value))
+            {
+                Raise(nameof(IsBusy));
+            }
+        }
+    }
+
+    public bool IsBusy => IsScanning || HasPendingWork;
 
     /// <summary>Cancels the running scan; queued work is retained and resumes when a worker claims it.</summary>
     public void CancelScan() => _scan.Cancel();
@@ -133,6 +149,7 @@ public sealed class ProcessingViewModel : ObservableObject
         {
             var rows = await _dashboard.RefreshAsync(cancellationToken).ConfigureAwait(true);
             var stats = await _dashboard.StatsAsync(cancellationToken).ConfigureAwait(true);
+            HasPendingWork = stats.Queued > 0 || stats.Leased > 0;
             Rows.Clear();
             foreach (var row in rows)
             {

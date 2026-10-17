@@ -88,7 +88,7 @@ public sealed class AccessibilityTests
                 window.Processing.Should().NotBeNull();
                 window.Review.Should().NotBeNull();
                 window.Maintenance.Should().NotBeNull();
-                foreach (var name in new[] { "Tabs", "Folder", "Scan", "Workers", "Results", "RefreshReviews", "Quarantine", "Groups", "Copies", "LoadPreview", "History", "Storage", "RefreshStorage", "ExportPath", "IncludePaths", "ExportIndex", "DeleteIndex" })
+                foreach (var name in new[] { "Tabs", "Folder", "BrowseFolder", "Scan", "Workers", "Results", "RefreshReviews", "Quarantine", "Groups", "Copies", "LoadPreview", "History", "Storage", "RefreshStorage", "ExportPath", "IncludePaths", "ExportIndex", "DeleteIndex" })
                 {
                     var element = window.FindName(name) as DependencyObject;
                     element.Should().NotBeNull($"the window must declare a '{name}' control");
@@ -102,6 +102,19 @@ public sealed class AccessibilityTests
                 window.Close();
             }
         });
+    }
+
+    [Fact]
+    public void Processing_results_use_curated_columns_instead_of_runtime_generated_fields()
+    {
+        var xaml = File.ReadAllText(XamlPath);
+
+        xaml.Should().NotContain("AutoGenerateColumns=\"True\"");
+        xaml.Should().Contain("Header=\"File\"")
+            .And.Contain("Header=\"Status\"")
+            .And.Contain("Header=\"Visual frames\"")
+            .And.Contain("Header=\"Audio fingerprint\"")
+            .And.Contain("Header=\"SHA-256\"");
     }
 
     private static void RunOnStaThread(Action action)
